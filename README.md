@@ -191,6 +191,10 @@ patch 文件是按**原文**同步的（这样注释和 `!!js` 表达式才能�
 - 本机私有配置 `~/.dsh/dsh-configandplugin-sync/config.json` 权限 `0600`，目录 `0700`。
 - ⚠️ 与 DSH 本身一致：Agent 以你的 OS 用户运行，因此本机凭据文件对 Agent 可读；这个插件能保证的是**不把密钥写进同步存储、不写进日志、不回传浏览器**。
 
+## 发布
+
+按 `@alfredhuang211/<包名>` 的 scope 命名发布，步骤与重命名影响面见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+
 ## 开发
 
 ```bash

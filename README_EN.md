@@ -172,6 +172,10 @@ An automatic run that meets a conflict **pauses and reports** instead of decidin
 - The private config file is `0600` inside a `0700` directory.
 - ⚠️ As everywhere in DSH, the agent runs as your OS user, so local credential files are readable by it. What this plugin guarantees is that secrets are not written to the synchronized store, not written to logs, and not returned to the browser.
 
+## Publishing
+
+Publish under the `@alfredhuang211/<package>` scope; the steps and the rename blast radius are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
 ## Development
 
 ```bash
