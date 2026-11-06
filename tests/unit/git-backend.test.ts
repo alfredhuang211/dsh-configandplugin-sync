@@ -446,6 +446,49 @@ describe('git backend', () => {
     }
   })
 
+  it('never reuses another store cached documents when the branch is empty', async () => {
+    // A work directory is a cache that survives a configuration change. If the
+    // new destination has no branch yet, the cached HEAD belongs to the *old*
+    // store and must be discarded — otherwise its documents (including its
+    // configuration) would be resurrected in the new store.
+    const storeA = makeBackend(workA)
+    const seeded = await storeA.write({
+      files: new Map([['a.json', utf8('{"a":1}')]]),
+      deletions: [],
+      message: 'seed store A',
+      trailers: trailers(),
+      expectedRevision: null,
+    })
+    expect(seeded.changed).toBe(true)
+
+    // A different, still-empty remote, sharing A's work directory.
+    const otherRemote = join(root, 'other.git')
+    await git(['init', '--bare', '-b', 'main', otherRemote])
+    const storeB = createGitBackend(
+      { kind: 'git', repoUrl: otherRemote, branch: 'main', authMode: 'credential-helper', tokenEnvVar: '', username: '' },
+      { workDir: workA, storePath: 'store', logger: createNullLogger() },
+    )
+
+    const snapshot = await storeB.read()
+    expect(snapshot.revision).toBeNull()
+    expect(snapshot.files.size).toBe(0)
+
+    await storeB.write({
+      files: new Map([['b.json', utf8('{"b":2}')]]),
+      deletions: [],
+      message: 'write store B',
+      trailers: trailers(),
+      expectedRevision: snapshot.revision,
+    })
+    const bTree = await git(['ls-tree', '-r', '--name-only', 'main'], otherRemote)
+    expect(bTree).toContain('store/b.json')
+    expect(bTree).not.toContain('a.json')
+
+    // Store A is untouched.
+    const aTree = await git(['ls-tree', '-r', '--name-only', 'main'], remote)
+    expect(aTree).toContain('store/a.json')
+  })
+
   it('round-trips commit trailers', () => {
     const body = formatCommitTrailers(
       trailers({ operation: 'sync', deviceId: 'd-1', deviceName: 'N', profile: 'work', result: 'partial', itemCount: '7' }),
