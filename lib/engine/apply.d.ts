@@ -80,8 +80,22 @@ export declare function mergePatchText(localText: string, remote: ConfigFileReco
         name: string;
     }>;
 }>;
+/**
+ * Whether a dependency specifier points at something only this machine has.
+ *
+ * `link:` / `file:` / `workspace:` / `portal:` all name a local path. Copying
+ * one from another device's `package.json` would leave a dependency pointing at
+ * a path that does not exist, and the loader would fail on the next install.
+ */
+export declare function isMachineLocalSpec(spec: string): boolean;
 /** Merge a remote `package.json` into the local one, key by key. */
-export declare function mergePackageText(localText: string | null, remote: ConfigFileRecord, base: ConfigFileRecord | null): string;
+export declare function mergePackageText(localText: string | null, remote: ConfigFileRecord, base: ConfigFileRecord | null): {
+    text: string;
+    skipped: Array<{
+        name: string;
+        spec: string;
+    }>;
+};
 /** Exported for the settings page: a one-line destination description. */
 export declare function describeDestination(kind: string, destination: string): string;
 /** Exported for tests: the raw YAML of one inserted entry. */

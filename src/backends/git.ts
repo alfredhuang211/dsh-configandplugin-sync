@@ -1196,7 +1196,7 @@ export function createGitBackend(config: GitBackendConfig, options: BackendOptio
     }
   })
 
-  const history = async (historyOptions: { limit?: number; signal?: AbortSignal } = {}): Promise<HistoryEntry[]> => {
+  const history = async (historyOptions: { limit?: number; signal?: AbortSignal } = {}): Promise<HistoryEntry[]> => withWorkDirLock(workDir, async () => {
     await prepare(historyOptions.signal)
     if ((await readHead(historyOptions.signal)) === null) return []
     const requested = historyOptions.limit
@@ -1209,7 +1209,7 @@ export function createGitBackend(config: GitBackendConfig, options: BackendOptio
       signal: historyOptions.signal,
     })
     return parseHistoryLog(result.stdout)
-  }
+  })
 
   const testConnection = async (signal?: AbortSignal): Promise<ConnectionTestResult> => {
     const at = new Date().toISOString()

@@ -11,7 +11,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { findMachineLocalEntryIds, mergePatchText, scanPatchEntryNames } from '../../src/engine/apply.js'
+import {
+  findMachineLocalEntryIds,
+  isMachineLocalSpec,
+  mergePackageText,
+  mergePatchText,
+  scanPatchEntryNames,
+} from '../../src/engine/apply.js'
 import { makeConfigFile } from '../helpers/snapshot.js'
 
 const roots: string[] = []
@@ -108,5 +114,60 @@ describe('mergePatchText', () => {
     const result = await mergePatchText(LOCAL, remote, null)
     expect(result.skipped).toEqual([])
     expect(result.text).toContain('onesuite-pilot-observability')
+  })
+})
+
+describe('isMachineLocalSpec', () => {
+  it('recognizes path-shaped dependency specs', () => {
+    expect(isMachineLocalSpec('link:/Users/me/plugin')).toBe(true)
+    expect(isMachineLocalSpec('file:../plugin')).toBe(true)
+    expect(isMachineLocalSpec('workspace:*')).toBe(true)
+    expect(isMachineLocalSpec('portal:/tmp/x')).toBe(true)
+    expect(isMachineLocalSpec('github:owner/repo#abc')).toBe(false)
+    expect(isMachineLocalSpec('dsh-context@0.81.2')).toBe(false)
+    expect(isMachineLocalSpec('^1.2.3')).toBe(false)
+  })
+})
+
+describe('mergePackageText', () => {
+  const local = JSON.stringify(
+    {
+      name: 'dsh-profile-desktop',
+      dependencies: { 'dsh-ssh-hosts': 'github:alfredhuang211/dsh-ssh-hosts#0c67db6' },
+      dsh: { profile: { bundles: ['dsh-ssh-hosts'] } },
+    },
+    null,
+    2,
+  )
+
+  it('takes portable specs and reports machine-local ones instead of writing dangling paths', () => {
+    const remote = makeConfigFile({
+      path: 'profiles/desktop/package.json',
+      kind: 'profile-package',
+      content: JSON.stringify(
+        {
+          name: 'dsh-profile-desktop',
+          dependencies: {
+            'dsh-ssh-hosts': 'link:/Users/other/dsh-ssh-hosts',
+            'dsh-context': '0.81.2',
+            'dsh-ai-passport': 'file:/Users/other/passport',
+            'dsh-webdav-sync': 'workspace:*',
+          },
+          dsh: { profile: { bundles: ['dsh-ssh-hosts', 'dsh-context'] } },
+        },
+        null,
+        2,
+      ),
+    })
+    const result = mergePackageText(local, remote, null)
+    const parsed = JSON.parse(result.text) as { dependencies: Record<string, string> }
+    // Portable entries are adopted...
+    expect(parsed.dependencies['dsh-context']).toBe('0.81.2')
+    // ...the local reproducible spec is kept instead of the other device's path...
+    expect(parsed.dependencies['dsh-ssh-hosts']).toBe('github:alfredhuang211/dsh-ssh-hosts#0c67db6')
+    // ...and path-only dependencies never land in this file.
+    expect(parsed.dependencies['dsh-ai-passport']).toBeUndefined()
+    expect(parsed.dependencies['dsh-webdav-sync']).toBeUndefined()
+    expect(result.skipped.map(entry => entry.name).sort()).toEqual(['dsh-ai-passport', 'dsh-ssh-hosts', 'dsh-webdav-sync'])
   })
 })

@@ -489,6 +489,30 @@ describe('git backend', () => {
     expect(aTree).toContain('store/a.json')
   })
 
+  it('serializes history with concurrent reads so no index.lock breaks the log', async () => {
+    const writer = makeBackend(workA)
+    await writer.write({
+      files: new Map([['a.json', utf8('{"a":1}')]]),
+      deletions: [],
+      message: 'seed history',
+      trailers: trailers(),
+      expectedRevision: null,
+    })
+    const second = makeBackend(workA)
+    // `git log` in a shared work tree used to race the reset performed by a
+    // concurrent read and fail with "Unable to create .git/index.lock".
+    const [history, readA, readB, historyAgain] = await Promise.all([
+      writer.history({ limit: 3 }),
+      writer.read(),
+      second.read(),
+      second.history({ limit: 3 }),
+    ])
+    expect(history.map(entry => entry.subject)).toEqual(['seed history'])
+    expect(historyAgain.map(entry => entry.subject)).toEqual(['seed history'])
+    expect(readA.files.size).toBe(1)
+    expect(readB.files.size).toBe(1)
+  })
+
   it('round-trips commit trailers', () => {
     const body = formatCommitTrailers(
       trailers({ operation: 'sync', deviceId: 'd-1', deviceName: 'N', profile: 'work', result: 'partial', itemCount: '7' }),
