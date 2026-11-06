@@ -48,8 +48,38 @@ export declare function createApplier(options: ApplierOptions): Applier;
 export declare function providerToConfig(provider: ProviderRecord): JsonObject;
 /** Turn an MCP record back into the entry configuration it came from. */
 export declare function mcpToConfig(server: McpServerRecord): JsonObject;
+/**
+ * Scan `id` → `name` pairs out of a patch document.
+ *
+ * Handles both a top-level override block (`- id:` … `name:`) and the rows
+ * nested in an `insert:` block, which is where a home patch usually carries a
+ * `file://` plugin.
+ */
+export declare function scanPatchEntryNames(text: string): Array<{
+    id: string;
+    name: string;
+}>;
+/**
+ * Find entries that point at a local file this device does not have.
+ *
+ * A `file://` plugin is machine-local by definition: its code lives at an
+ * absolute path that another device does not share. Copying such an entry into
+ * another device's patch would make the Loader try to import a file that is not
+ * there (and would leak the path), so a restore keeps the local state instead
+ * and reports what it skipped.
+ */
+export declare function findMachineLocalEntryIds(text: string): Promise<Array<{
+    id: string;
+    name: string;
+}>>;
 /** Merge a remote patch file into the local text without dropping local entries. */
-export declare function mergePatchText(localText: string, remote: ConfigFileRecord, base: ConfigFileRecord | null): string;
+export declare function mergePatchText(localText: string, remote: ConfigFileRecord, base: ConfigFileRecord | null): Promise<{
+    text: string;
+    skipped: Array<{
+        id: string;
+        name: string;
+    }>;
+}>;
 /** Merge a remote `package.json` into the local one, key by key. */
 export declare function mergePackageText(localText: string | null, remote: ConfigFileRecord, base: ConfigFileRecord | null): string;
 /** Exported for the settings page: a one-line destination description. */

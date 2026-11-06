@@ -31,10 +31,11 @@ import type {
   SecretsEnvelope,
   SyncLogger,
 } from '../types.js'
+import { fileURLToPath } from 'node:url'
 import { SyncError, errorMessage } from '../core/errors.js'
 import { asJsonObject, sanitizeJson } from '../core/json.js'
 import { sanitizeUrl } from '../core/redact.js'
-import { readTextFile, writePrivateFile } from '../core/fs.js'
+import { pathExists, readTextFile, writePrivateFile } from '../core/fs.js'
 import { mergePatch, preserveMaskedValues, splitPatch, upsertBlock } from '../core/patch.js'
 import { emitPatchEntry, type Emittable } from '../core/yaml.js'
 import type { DshChangeResult, DshConfigEditor, DshCredentials, DshLoaderEntry, DshPluginManager } from '../dsh.js'
@@ -306,7 +307,8 @@ export function createApplier(options: ApplierOptions): Applier {
       const targetPath = join(options.dshHome, ...remote.path.split('/'))
       const current = (await readTextFile(targetPath)) ?? ''
       const base = asConfigFile(applyOptions.base ?? null)
-      content = mergePatchText(current, remote, base)
+      const merged = await mergePatchText(current, remote, base)
+      content = merged.text
       // Values the collector masked must not overwrite the ones this device
       // already has; anything still masked had no local value to keep.
       const masked = preserveMaskedValues(current, content)
@@ -314,6 +316,15 @@ export function createApplier(options: ApplierOptions): Applier {
       if (content === current) return `${remote.path} 已是最新 / already up to date`
       await writePrivateFile(targetPath, content)
       options.setRestartRequired?.(`${remote.path} updated`)
+      const skippedNote =
+        merged.skipped.length === 0
+          ? ''
+          : `，跳过 ${merged.skipped.length} 个本机路径插件条目（${merged.skipped.map(entry => entry.id).join(', ')}）/ skipped ${merged.skipped.length} machine-local file:// entr(ies)`
+      if (merged.skipped.length > 0) {
+        logger.warn(`跳过仅存在于其他设备的本机路径插件 / skipping entries that point at a file only the other device has`, {
+          entries: merged.skipped.map(entry => entry.id),
+        })
+      }
       const kept = masked.restored.length === 0 ? '' : `，保留本地敏感值 / kept local secrets: ${masked.restored.join(', ')}`
       const missing =
         masked.unresolved.length === 0
@@ -324,7 +335,7 @@ export function createApplier(options: ApplierOptions): Applier {
           keys: masked.unresolved,
         })
       }
-      return `${remote.path} 已合并 / merged${kept}${missing}`
+      return `${remote.path} 已合并 / merged${kept}${missing}${skippedNote}`
     }
     if (remote.kind === 'profile-package') {
       const targetPath = join(options.profileDir, 'package.json')
@@ -475,21 +486,90 @@ export function mcpToConfig(server: McpServerRecord): JsonObject {
   return sanitizeJson(config) as JsonObject
 }
 
+/**
+ * Scan `id` → `name` pairs out of a patch document.
+ *
+ * Handles both a top-level override block (`- id:` … `name:`) and the rows
+ * nested in an `insert:` block, which is where a home patch usually carries a
+ * `file://` plugin.
+ */
+export function scanPatchEntryNames(text: string): Array<{ id: string; name: string }> {
+  const out: Array<{ id: string; name: string }> = []
+  let current: { id: string; name: string } | null = null
+  let itemIndent = 0
+  for (const line of text.split('\n')) {
+    const idMatch = /^(\s*)-\s+id:\s*(.+?)\s*$/.exec(line)
+    if (idMatch !== null) {
+      itemIndent = (idMatch[1] ?? '').length
+      const id = unquoteScalar(idMatch[2] ?? '')
+      current = id === '' ? null : { id, name: '' }
+      if (current !== null) out.push(current)
+      continue
+    }
+    if (current === null) continue
+    const nameMatch = /^(\s+)name:\s*(.+?)\s*$/.exec(line)
+    if (nameMatch !== null && (nameMatch[1] ?? '').length > itemIndent && current.name === '') {
+      current.name = unquoteScalar(nameMatch[2] ?? '')
+    }
+  }
+  return out.filter(entry => entry.name !== '')
+}
+
+/** Strip surrounding single or double quotes from a scalar. */
+function unquoteScalar(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length >= 2) {
+    const first = trimmed[0]
+    const last = trimmed[trimmed.length - 1]
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) return trimmed.slice(1, -1)
+  }
+  return trimmed
+}
+
+/**
+ * Find entries that point at a local file this device does not have.
+ *
+ * A `file://` plugin is machine-local by definition: its code lives at an
+ * absolute path that another device does not share. Copying such an entry into
+ * another device's patch would make the Loader try to import a file that is not
+ * there (and would leak the path), so a restore keeps the local state instead
+ * and reports what it skipped.
+ */
+export async function findMachineLocalEntryIds(text: string): Promise<Array<{ id: string; name: string }>> {
+  const missing: Array<{ id: string; name: string }> = []
+  for (const entry of scanPatchEntryNames(text)) {
+    if (!entry.name.startsWith('file://')) continue
+    let target: string
+    try {
+      target = fileURLToPath(entry.name)
+    } catch {
+      missing.push(entry)
+      continue
+    }
+    if (!(await pathExists(target))) missing.push(entry)
+  }
+  return missing
+}
+
 /** Merge a remote patch file into the local text without dropping local entries. */
-export function mergePatchText(
+export async function mergePatchText(
   localText: string,
   remote: ConfigFileRecord,
   base: ConfigFileRecord | null,
-): string {
+): Promise<{ text: string; skipped: Array<{ id: string; name: string }> }> {
+  const skipped = await findMachineLocalEntryIds(remote.content)
+  const skipIds = new Set(skipped.map(entry => entry.id))
   const remoteIds = new Set<string>()
   for (const block of splitPatch(remote.content).blocks) {
-    if (block.id !== null) remoteIds.add(block.id)
-    for (const id of block.insertIds) remoteIds.add(id)
+    if (block.id !== null && !skipIds.has(block.id)) remoteIds.add(block.id)
+    for (const id of block.insertIds) {
+      if (!skipIds.has(id)) remoteIds.add(id)
+    }
   }
-  if (remoteIds.size === 0) return remote.content
+  if (remoteIds.size === 0) return { text: localText, skipped }
   if (base === null) {
-    // First pull: adopt every remote entry, keep any local-only block.
-    return mergePatch(localText, remote.content, { takeIds: [...remoteIds] }).text
+    // First pull: adopt every portable remote entry, keep any local-only block.
+    return { text: mergePatch(localText, remote.content, { takeIds: [...remoteIds] }).text, skipped }
   }
   const baseMap = new Map<string, string>()
   for (const block of splitPatch(base.content).blocks) {
@@ -508,6 +588,7 @@ export function mergePatchText(
   }
   const take: string[] = []
   for (const id of remoteIds) {
+    if (skipIds.has(id)) continue
     const remoteText = remoteMap.get(id)
     if (remoteText === undefined) continue
     const baseText = baseMap.get(id)
@@ -517,8 +598,8 @@ export function mergePatchText(
     if (localTouched) continue
     if (remoteText !== baseText) take.push(id)
   }
-  if (take.length === 0) return localText
-  return mergePatch(localText, remote.content, { takeIds: take }).text
+  if (take.length === 0) return { text: localText, skipped }
+  return { text: mergePatch(localText, remote.content, { takeIds: take }).text, skipped }
 }
 
 /** Merge a remote `package.json` into the local one, key by key. */
