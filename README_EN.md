@@ -85,18 +85,39 @@ On the first sync between two devices that both already hold a value, differing 
 
 ## Secrets and passphrases
 
-Secret synchronization is **off by default**. Enable it with:
+Secret synchronization is **off by default**. Before enabling it, give the plugin a passphrase — three ways, in order of preference:
+
+### Option A: save it to the local passphrase file (recommended for the desktop app)
+
+**Settings → DSH Config & Plugin Sync → Secrets → Local passphrase file → type it → Save locally.**
+
+- written to `~/.dsh/dsh-configandplugin-sync/passphrase` with mode `0600`;
+- **no environment variable, takes effect immediately, no restart**;
+- stays on this device, is never synchronized, and never appears on any page or log line.
+
+### Option B: launch environment
 
 ```bash
-export DSH_SYNC_PASSPHRASE='your passphrase'
+# macOS: launch with the variable for this run
+open -a "DeepSeek Harness" --env DSH_SYNC_PASSPHRASE='your passphrase'
+
+# or hand it to launchd (applies to apps launched afterwards)
+launchctl setenv DSH_SYNC_PASSPHRASE 'your passphrase'
 ```
 
-(or rename the variable in the settings page), then switch on the "secrets" scope.
+### Option C: rename it and use `~/.dsh/.env`
 
-- encryption: `scrypt(N=2^15, r=8, p=1)` → 32-byte key → `AES-256-GCM`;
-- the envelope carries only salt / iv / tag / ciphertext — **no passphrase, no plaintext**;
-- the passphrase is read from the environment or entered once in the settings page, and is **never** persisted in the config or the store;
-- every device with the same passphrase can decrypt; a wrong passphrase is a typed `passphrase-invalid` and never corrupts local data.
+```bash
+# DSH rejects any DSH_-prefixed variable from .env, so rename the configured
+# variable first, e.g. to SYNC_PASSPHRASE, then in ~/.dsh/.env:
+SYNC_PASSPHRASE='your passphrase'
+```
+
+A `.env` change needs a DSH restart (it is read once at startup).
+
+> ⚠️ **Do not** put `DSH_SYNC_PASSPHRASE` in `~/.dsh/.env`: DSH refuses every `DSH_` / `XDG_` / `DYLD_` variable there (they decide how the process starts, what code loads, and how it reaches the network) and fails startup. That restriction is exactly why the local passphrase file exists.
+
+Encryption: `scrypt(N=2^15, r=8, p=1)` → 32-byte key → `AES-256-GCM`. The envelope holds only salt / iv / tag / ciphertext — no passphrase, no plaintext — and the passphrase is never written to configuration or to the store.
 
 ## Plaintext secrets inside configuration files
 

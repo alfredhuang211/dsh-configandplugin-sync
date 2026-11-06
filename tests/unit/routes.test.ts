@@ -224,6 +224,40 @@ describe('secret blanking', () => {
     expect(stored.s3.secretAccessKey).toBe('super-secret-access-key')
   })
 
+  it('stores the passphrase in a local 0600 file and reports its source', async () => {
+    const harness = await makeRouteHarness()
+    cleanups.push(() => harness.dsh.cleanup())
+    const before = await harness.call('secrets/status')
+    expect(before.payload.value.passphraseAvailable).toBe(false)
+
+    const saved = await harness.call('secrets/passphrase', { passphrase: 'a-local-passphrase' })
+    expect(saved.payload.value.stored).toBe(true)
+
+    const status = await harness.call('secrets/status')
+    expect(status.payload.value.passphraseAvailable).toBe(true)
+    expect(status.payload.value.passphraseSource).toBe('file')
+    // The value itself never appears in a response.
+    expect(JSON.stringify(status.payload)).not.toContain('a-local-passphrase')
+
+    const { readFile, stat } = await import('node:fs/promises')
+    const file = `${harness.dsh.root}/dsh-configandplugin-sync/passphrase`
+    expect((await readFile(file, 'utf8')).trim()).toBe('a-local-passphrase')
+    expect((await stat(file)).mode & 0o777).toBe(0o600)
+
+    const cleared = await harness.call('secrets/passphrase', { clear: true })
+    expect(cleared.payload.value.stored).toBe(false)
+    const after = await harness.call('secrets/status')
+    expect(after.payload.value.passphraseAvailable).toBe(false)
+  })
+
+  it('rejects an empty passphrase', async () => {
+    const harness = await makeRouteHarness()
+    cleanups.push(() => harness.dsh.cleanup())
+    const response = await harness.call('secrets/passphrase', { passphrase: '   ' })
+    expect(response.payload.ok).toBe(false)
+    expect(response.payload.error.code).toBe('passphrase-required')
+  })
+
   it('accepts a newly typed credential', async () => {
     const harness = await makeRouteHarness()
     cleanups.push(() => harness.dsh.cleanup())
@@ -269,6 +303,7 @@ describe('blankSecrets / restoreBlankedSecrets', () => {
     },
     deviceName: 'd',
     passphraseAvailable: false,
+    passphraseSource: null,
     tokenAvailable: false,
     device: { id: 'i', name: 'n', platform: 'darwin', arch: 'arm64', dshVersion: '1', pluginVersion: '1' },
     activeProfile: 'desktop',

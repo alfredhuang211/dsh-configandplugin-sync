@@ -54,6 +54,7 @@ import { sha256Json } from '../core/hash.js'
 import { sanitizeJson } from '../core/json.js'
 import { createMutex } from '../core/mutex.js'
 import { displayPath } from '../core/paths.js'
+import { readTextFile, removeFile, writePrivateFile } from '../core/fs.js'
 import { createApplier, type Applier } from './apply.js'
 import { decryptSecrets, encryptSecrets } from './crypto.js'
 import {
@@ -155,6 +156,10 @@ export interface SyncEngine {
   logs(options?: { limit?: number | undefined }): Promise<{ entries: LogEntry[] }>
   secretsStatus(options?: PlanOptions): Promise<SecretsStatusView>
   unlockSecrets(options: { passphrase?: string | undefined; signal?: AbortSignal | undefined }): Promise<{ ok: boolean; refCount: number; createdAt: string }>
+  /** Store the passphrase in the local `0600` file (the GUI-friendly source). */
+  setPassphrase(passphrase: string): Promise<{ stored: boolean; source: 'file' }>
+  /** Remove the local passphrase file. */
+  clearPassphrase(): Promise<{ stored: boolean }>
   inspectPlugin(spec: string): Promise<PluginInspectView>
   invalidate(): void
   /** Whether an operation currently runs. */
@@ -223,6 +228,8 @@ export interface SecretsStatusView {
   createdAt?: string
   refCount?: number
   passphraseAvailable: boolean
+  /** Where the available passphrase came from; null when none is available. */
+  passphraseSource?: 'env' | 'file' | 'explicit' | null
   localRefs: string[]
   localRecords: string[]
 }
@@ -296,11 +303,30 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     return profile
   }
 
-  const resolvePassphrase = (config: SyncConfig, explicit?: string): string => {
-    if (typeof explicit === 'string' && explicit !== '') return explicit
+  /** Where the locally stored passphrase lives (a 0600 file, never synchronized). */
+  const passphraseFilePath = (): string => join(deps.paths.dataDir, 'passphrase')
+
+  /**
+   * Resolve the encryption passphrase.
+   *
+   * Order: an explicit one-off value (the unlock box), the configured
+   * environment variable, then the local passphrase file. The file exists
+   * because DSH refuses to accept a `DSH_*` (or `XDG_*`) variable from any
+   * `.env`, and a GUI-launched app has no shell environment to export into — so
+   * without it the only way to supply a passphrase would be `open --env` or
+   * `launchctl setenv`, which is a poor fit for a settings page.
+   */
+  const resolvePassphrase = async (
+    config: SyncConfig,
+    explicit?: string,
+  ): Promise<{ value: string; source: 'explicit' | 'env' | 'file' | null }> => {
+    if (typeof explicit === 'string' && explicit !== '') return { value: explicit, source: 'explicit' }
     const name = config.passphraseEnvVar.trim()
-    if (name === '') return ''
-    return (deps.env[name] ?? '').trim()
+    const fromEnv = name === '' ? '' : (deps.env[name] ?? '').trim()
+    if (fromEnv !== '') return { value: fromEnv, source: 'env' }
+    const fromFile = ((await readTextFile(passphraseFilePath())) ?? '').trim()
+    if (fromFile !== '') return { value: fromFile, source: 'file' }
+    return { value: '', source: null }
   }
 
   /**
@@ -339,11 +365,11 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     direction: 'push' | 'pull' | 'two-way',
   ): Promise<{ envelope: SecretsEnvelope | null; warning: string | null }> => {
     if (!config.scopes.secrets) return { envelope: null, warning: null }
-    const passphrase = resolvePassphrase(config)
+    const passphrase = (await resolvePassphrase(config)).value
     if (passphrase === '') {
       return {
         envelope: null,
-        warning: `密钥同步已启用，但环境变量 ${config.passphraseEnvVar || '(未设置)'} 中没有口令 / secrets sync is on but no passphrase is available`,
+        warning: `密钥同步已启用，但既没有环境变量 ${config.passphraseEnvVar || '(未设置)'}，也没有本机口令文件 / secrets sync is on but no passphrase is available from the environment variable or the local passphrase file`,
       }
     }
     const payload = await readLocalSecrets(
@@ -481,7 +507,7 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
       throw new SyncError('conflict-present', '存在需要用户决定的冲突 / unresolved conflicts need a decision', { plan })
     }
 
-    const passphrase = resolvePassphrase(prepared.config)
+    const passphrase = (await resolvePassphrase(prepared.config)).value
     const applier = applierFor(prepared.config, passphrase)
     const outcomes: ActionOutcome[] = []
 
@@ -648,12 +674,13 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     }
   }
 
-  const buildConfigView = (config: SyncConfig, state: LocalState): SyncConfigView => {
-    const passphrase = resolvePassphrase(config)
+  const buildConfigView = async (config: SyncConfig, state: LocalState): Promise<SyncConfigView> => {
+    const passphrase = await resolvePassphrase(config)
     const token = config.git.tokenEnvVar === '' ? '' : (deps.env[config.git.tokenEnvVar] ?? '')
     return {
       ...config,
-      passphraseAvailable: passphrase !== '',
+      passphraseAvailable: passphrase.value !== '',
+      passphraseSource: passphrase.source,
       tokenAvailable: token.trim() !== '',
       device: state.device,
       activeProfile: deps.activeProfile,
@@ -679,7 +706,7 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
   const status = async (options: PlanOptions = {}): Promise<StatusView> => {
     const config = await deps.configStore.read()
     const state = await deps.stateStore.read()
-    const configView = buildConfigView(config, state)
+    const configView = await buildConfigView(config, state)
     const readiness = configured(config)
     const base: StatusView = {
       state: readiness.ok ? 'unknown' : 'not-configured',
@@ -1074,9 +1101,11 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
   const secretsStatus = async (options: PlanOptions = {}): Promise<SecretsStatusView> => {
     const config = await deps.configStore.read()
     const payload = await readLocalSecrets(config)
+    const passphrase = await resolvePassphrase(config)
     const view: SecretsStatusView = {
       stored: false,
-      passphraseAvailable: resolvePassphrase(config) !== '',
+      passphraseAvailable: passphrase.value !== '',
+      passphraseSource: passphrase.source,
       localRefs: payload?.refs.map(ref => ref.ref).sort() ?? [],
       localRecords: payload?.records.map(record => record.key).sort() ?? [],
     }
@@ -1097,7 +1126,7 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
 
   const unlockSecrets = async (options: { passphrase?: string; signal?: AbortSignal }): Promise<{ ok: boolean; refCount: number; createdAt: string }> => {
     const config = await deps.configStore.read()
-    const passphrase = resolvePassphrase(config, options.passphrase)
+    const passphrase = (await resolvePassphrase(config, options.passphrase)).value
     if (passphrase === '') throw new SyncError('passphrase-required', '需要口令 / a passphrase is required')
     const prepared = await prepare({ signal: options.signal }, 'pull')
     const entry = prepared.remote.get('secrets')?.items['secrets'] as RemoteItem<SecretsEnvelope> | undefined
@@ -1106,6 +1135,27 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     }
     const payload = await decryptSecrets(entry.value, { passphrase })
     return { ok: true, refCount: payload.refs.length, createdAt: entry.value.createdAt }
+  }
+
+  /**
+   * Store the passphrase in the local private file.
+   *
+   * This is the supported way to supply it on a GUI-launched app: no `.env`
+   * (DSH rejects `DSH_*` names there), no shell profile, no launch flags. The
+   * file is `0600` next to the plugin's state and never synchronized.
+   */
+  const setPassphrase = async (passphrase: string): Promise<{ stored: boolean; source: 'file' }> => {
+    const value = passphrase.trim()
+    if (value === '') throw new SyncError('passphrase-required', '口令不能为空 / the passphrase cannot be empty')
+    await writePrivateFile(passphraseFilePath(), `${value}\n`)
+    logger.info('本机口令文件已更新 / local passphrase file updated', { length: value.length })
+    return { stored: true, source: 'file' }
+  }
+
+  const clearPassphrase = async (): Promise<{ stored: boolean }> => {
+    await removeFile(passphraseFilePath())
+    logger.info('本机口令文件已删除 / local passphrase file removed')
+    return { stored: false }
   }
 
   const inspectPlugin = async (spec: string): Promise<PluginInspectView> => {
@@ -1146,6 +1196,8 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     logs,
     secretsStatus,
     unlockSecrets,
+    setPassphrase,
+    clearPassphrase,
     inspectPlugin,
     invalidate,
     busy: () => runningOperation !== null,

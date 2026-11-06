@@ -68,6 +68,7 @@ export type ApiRoute =
   | 'logs'
   | 'secrets/status'
   | 'secrets/unlock'
+  | 'secrets/passphrase'
   | 'plugin/inspect'
 
 /** Request body for a status read. */
@@ -192,6 +193,8 @@ export interface SecretsStatusResponse {
   refCount?: number
   /** Whether a passphrase is available in this process. */
   passphraseAvailable: boolean
+  /** Where it came from: the environment variable or the local `0600` file. */
+  passphraseSource?: 'env' | 'file' | 'explicit' | null
   /** Reference names configured on this device (no values). */
   localRefs: string[]
   /** Record keys stored on this device (no payloads). */
@@ -209,6 +212,20 @@ export interface SecretsUnlockResponse {
   ok: boolean
   refCount: number
   createdAt: string
+}
+
+/** Request body for `secrets/passphrase`: store it locally, or clear it. */
+export interface PassphraseSaveRequest {
+  /** The passphrase to store in the local `0600` file; omit when clearing. */
+  passphrase?: string
+  /** Remove the local passphrase file instead of writing one. */
+  clear?: boolean
+}
+
+/** Response of `secrets/passphrase`. */
+export interface PassphraseSaveResponse {
+  /** Whether a local passphrase file exists afterwards. */
+  stored: boolean
 }
 
 /** Request body for `plugin/inspect`. */

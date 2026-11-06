@@ -108,6 +108,15 @@ export interface SyncEngine {
         refCount: number;
         createdAt: string;
     }>;
+    /** Store the passphrase in the local `0600` file (the GUI-friendly source). */
+    setPassphrase(passphrase: string): Promise<{
+        stored: boolean;
+        source: 'file';
+    }>;
+    /** Remove the local passphrase file. */
+    clearPassphrase(): Promise<{
+        stored: boolean;
+    }>;
     inspectPlugin(spec: string): Promise<PluginInspectView>;
     invalidate(): void;
     /** Whether an operation currently runs. */
@@ -190,6 +199,8 @@ export interface SecretsStatusView {
     createdAt?: string;
     refCount?: number;
     passphraseAvailable: boolean;
+    /** Where the available passphrase came from; null when none is available. */
+    passphraseSource?: 'env' | 'file' | 'explicit' | null;
     localRefs: string[];
     localRecords: string[];
 }

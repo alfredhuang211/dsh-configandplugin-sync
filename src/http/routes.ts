@@ -31,6 +31,7 @@ import type {
   RestorePreviewRequest,
   RestoreRequest,
   RollbackRequest,
+  PassphraseSaveRequest,
   StatusRequest,
   SyncRequest,
 } from './api-types.js'
@@ -262,6 +263,15 @@ export function registerHttpRoutes(options: { ctx: DshContext; engine: SyncEngin
 
       'secrets/unlock': async body =>
         options.engine.unlockSecrets({ passphrase: typeof body.passphrase === 'string' ? body.passphrase : undefined }),
+
+      'secrets/passphrase': async body => {
+        const request = body as unknown as PassphraseSaveRequest
+        if (request.clear === true) return options.engine.clearPassphrase()
+        if (typeof request.passphrase !== 'string' || request.passphrase.trim() === '') {
+          throw new SyncError('passphrase-required', '口令不能为空 / the passphrase cannot be empty')
+        }
+        return options.engine.setPassphrase(request.passphrase)
+      },
 
       'plugin/inspect': async body => {
         const request = body as unknown as PluginInspectRequest

@@ -86,17 +86,43 @@ plugin_manager install_bundle  target: /绝对路径/dsh-configandplugin-sync
 
 ## 密钥与口令
 
-密钥同步默认**关闭**。开启方式：
+密钥同步默认**关闭**。启用前先让插件拿到口令，方式有三（按推荐顺序）：
+
+### 方式 A：设置页保存到本机口令文件（推荐，桌面 App 用这个）
+
+**设置 → DSH 配置与插件同步 → 密钥 → 本机口令文件 → 输入口令 → 保存到本机**。
+
+- 写入 `~/.dsh/dsh-configandplugin-sync/passphrase`，权限 `0600`；
+- **不经过环境变量、立即生效、无需重启**；
+- 只留在本机，不会被同步，也不会出现在任何页面或日志里。
+
+### 方式 B：启动环境变量
 
 ```bash
-export DSH_SYNC_PASSPHRASE='你的口令'
+# macOS：用 open 带着变量启动（推荐，仅影响本次启动）
+open -a "DeepSeek Harness" --env DSH_SYNC_PASSPHRASE='你的口令'
+
+# 或者交给 launchd（对之后启动的 App 生效，重启后失效）
+launchctl setenv DSH_SYNC_PASSPHRASE '你的口令'
 ```
 
-或在设置页把"口令环境变量名"改成别的。然后打开"密钥"范围。
+### 方式 C：改名后写进 `~/.dsh/.env`
+
+```bash
+# DSH 禁止 .env 设置任何 DSH_ 前缀变量，所以先把“口令环境变量名”改成别的名字，
+# 例如 SYNC_PASSPHRASE，然后在 ~/.dsh/.env 里写：
+SYNC_PASSPHRASE='你的口令'
+```
+
+写完需重启 DSH（`.env` 只在启动时读一次）。
+
+> ⚠️ **不要**把 `DSH_SYNC_PASSPHRASE` 直接写进 `~/.dsh/.env`：DSH 会拒绝任何 `DSH_` / `XDG_` / `DYLD_` 前缀的变量（它们会改变进程如何启动、加载什么代码、走哪条网络），并在启动阶段直接失败。这正是本机口令文件存在的原因。
+
+加密细节：
 
 - 加密：`scrypt(N=2^15, r=8, p=1)` 派生 32 字节密钥 → `AES-256-GCM`；
 - 信封里只有 salt / iv / tag / 密文，**没有口令、没有明文**；
-- 口令只从环境变量或设置页的一次性输入取得，**从不写入配置文件，也从不写入存储**；
+- 口令从上述三种来源取得，**从不写入配置文件，也从不写入存储**；
 - 每台设备都可以用同一口令解开；口令错了是明确的 `passphrase-invalid`，不会破坏本地数据。
 
 ## 配置文件里的明文密钥

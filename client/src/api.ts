@@ -44,6 +44,8 @@ import type {
   RollbackRequest,
   SecretsStatusResponse,
   SecretsUnlockRequest,
+  PassphraseSaveRequest,
+  PassphraseSaveResponse,
   SecretsUnlockResponse,
   SectionsListResponse,
   StatusRequest,
@@ -289,6 +291,24 @@ export function unlockSecrets(
   options: PostOptions = {},
 ): Promise<SecretsUnlockResponse> {
   return post<SecretsUnlockResponse>('secrets/unlock', body, options)
+}
+
+/**
+ * Store the passphrase in the local `0600` file, or clear it.
+ *
+ * A GUI-launched DSH has no shell environment to export into, and DSH rejects
+ * `DSH_*` names in every `.env`, so this file is the supported source.
+ */
+export function savePassphrase(
+  body: PassphraseSaveRequest,
+  options: PostOptions = {},
+): Promise<PassphraseSaveResponse> {
+  return post<PassphraseSaveResponse>('secrets/passphrase', body, options)
+}
+
+/** Remove the local passphrase file. */
+export function clearPassphrase(options: PostOptions = {}): Promise<PassphraseSaveResponse> {
+  return savePassphrase({ clear: true }, options)
 }
 
 /** Check whether an install spec could rebuild a plugin on another device. */

@@ -158,6 +158,7 @@ export function Page({ t }: PageProps): ReactElement {
   const [secrets, setSecrets] = useState<SecretsStatusResponse | null>(null)
   const [secretsLoading, setSecretsLoading] = useState(true)
   const [secretsError, setSecretsError] = useState<string | null>(null)
+  const [passphraseBusy, setPassphraseBusy] = useState(false)
 
   // --- Page state --------------------------------------------------------
   const [tab, setTab] = useState<TabId>('overview')
@@ -846,6 +847,25 @@ export function Page({ t }: PageProps): ReactElement {
           status={secrets}
           loading={secretsLoading}
           error={secretsError}
+          passphraseBusy={passphraseBusy}
+          onSavePassphrase={async passphrase => {
+            setPassphraseBusy(true)
+            try {
+              await api.savePassphrase({ passphrase })
+              void refreshSecrets()
+            } finally {
+              setPassphraseBusy(false)
+            }
+          }}
+          onClearPassphrase={async () => {
+            setPassphraseBusy(true)
+            try {
+              await api.clearPassphrase()
+              void refreshSecrets()
+            } finally {
+              setPassphraseBusy(false)
+            }
+          }}
           onRefresh={() => {
             void refreshSecrets()
           }}

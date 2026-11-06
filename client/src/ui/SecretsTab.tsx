@@ -41,6 +41,23 @@ export interface SecretsTabProps {
   /** The configured passphrase environment-variable name (a name, never a value). */
   envVarName: string
   onUnlock: (passphrase: string) => Promise<{ ok: boolean; refCount: number; createdAt: string }>
+  /** Store the passphrase in the local `0600` file. */
+  onSavePassphrase: (passphrase: string) => Promise<void>
+  /** Remove the local passphrase file. */
+  onClearPassphrase: () => Promise<void>
+  /** True while a passphrase write/clear is in flight. */
+  passphraseBusy: boolean
+}
+
+/** Human label for where the available passphrase came from. */
+function sourceLabel(
+  t: Translate,
+  source: SecretsStatusResponse['passphraseSource'] | undefined,
+): string {
+  if (source === 'env') return t('secretsSourceEnv')
+  if (source === 'file') return t('secretsSourceFile')
+  if (source === 'explicit') return t('secretsSourceExplicit')
+  return t('notAvailable')
 }
 
 /** Render the secrets tab. */
@@ -49,6 +66,32 @@ export function SecretsTab(props: SecretsTabProps): ReactElement {
   const [passphrase, setPassphrase] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [feedback, setFeedback] = useState<UnlockFeedback | null>(null)
+  const [localPassphrase, setLocalPassphrase] = useState('')
+  const [saveFeedback, setSaveFeedback] = useState<UnlockFeedback | null>(null)
+
+  async function saveLocal(): Promise<void> {
+    if (props.passphraseBusy) return
+    setSaveFeedback(null)
+    try {
+      await props.onSavePassphrase(localPassphrase)
+      setSaveFeedback({ tone: 'success', text: t('secretsPassphraseSaved') })
+    } catch (error) {
+      setSaveFeedback({ tone: 'error', text: t('secretsPassphraseSaveFailed', { message: errorText(error) }) })
+    } finally {
+      setLocalPassphrase('')
+    }
+  }
+
+  async function clearLocal(): Promise<void> {
+    if (props.passphraseBusy) return
+    setSaveFeedback(null)
+    try {
+      await props.onClearPassphrase()
+      setSaveFeedback({ tone: 'success', text: t('secretsPassphraseCleared') })
+    } catch (error) {
+      setSaveFeedback({ tone: 'error', text: t('secretsPassphraseSaveFailed', { message: errorText(error) }) })
+    }
+  }
 
   async function verify(): Promise<void> {
     if (verifying) return
@@ -165,6 +208,37 @@ export function SecretsTab(props: SecretsTabProps): ReactElement {
             </div>
           </>
         )}
+      </Card>
+
+      <Card
+        title={t('secretsLocalPassphraseTitle')}
+        description={t('secretsLocalPassphraseDesc')}
+        trailing={
+          <Badge tone={status !== null && status.passphraseAvailable ? 'success' : 'warn'}>
+            {status !== null && status.passphraseAvailable
+              ? t('secretsLocalPassphraseAvailable', { source: sourceLabel(t, status.passphraseSource) })
+              : t('secretsPassphraseUnavailable')}
+          </Badge>
+        }
+      >
+        <Banner tone="idle">{t('secretsLocalPassphraseWhy')}</Banner>
+        <div className="dcs-inlineRow">
+          <TextInput
+            id="dcs-local-passphrase"
+            type="password"
+            value={localPassphrase}
+            disabled={props.passphraseBusy}
+            placeholder={t('secretsPassphrasePlaceholder')}
+            onChange={setLocalPassphrase}
+          />
+          <Button onClick={() => void saveLocal()} disabled={props.passphraseBusy || localPassphrase === ''} loading={props.passphraseBusy}>
+            {t('secretsLocalPassphraseSave')}
+          </Button>
+          <Button onClick={() => void clearLocal()} disabled={props.passphraseBusy}>
+            {t('secretsLocalPassphraseClear')}
+          </Button>
+        </div>
+        {saveFeedback === null ? null : <Banner tone={saveFeedback.tone}>{saveFeedback.text}</Banner>}
       </Card>
 
       <Card title={t('secretsUnlockTitle')} description={t('secretsUnlockDesc')}>

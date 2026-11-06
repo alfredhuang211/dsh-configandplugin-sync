@@ -573,8 +573,10 @@ export interface SyncConfig {
 
 /** Configuration as shown to the UI: secrets never leave the host. */
 export interface SyncConfigView extends SyncConfig {
-  /** Whether the configured passphrase environment variable is present. */
+  /** Whether a passphrase is available (environment variable or local file). */
   passphraseAvailable: boolean
+  /** Where the passphrase came from; null when none is available. */
+  passphraseSource?: 'env' | 'file' | 'explicit' | null
   /** Whether the configured token environment variable is present. */
   tokenAvailable: boolean
   /** Effective device identity. */
