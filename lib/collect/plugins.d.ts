@@ -58,7 +58,7 @@ export interface CheckoutFacts {
     root: string;
     /** Plugin directory relative to the root, POSIX style ('' for a root package). */
     relativeDir: string;
-    /** Raw remote URL of `origin` (or the first remote). */
+    /** Raw remote URL of the remote that carries HEAD (prefers `origin`, then the first). */
     remoteUrl: string | null;
     /** GitHub coordinates, when the remote is on github.com. */
     github: {

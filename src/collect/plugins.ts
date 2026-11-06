@@ -415,7 +415,7 @@ export interface CheckoutFacts {
   root: string
   /** Plugin directory relative to the root, POSIX style ('' for a root package). */
   relativeDir: string
-  /** Raw remote URL of `origin` (or the first remote). */
+  /** Raw remote URL of the remote that carries HEAD (prefers `origin`, then the first). */
   remoteUrl: string | null
   /** GitHub coordinates, when the remote is on github.com. */
   github: { owner: string; repo: string } | null
@@ -464,28 +464,49 @@ export async function inspectCheckout(
 
   const relativeDir = resolve(pluginDir) === root ? '' : resolve(pluginDir).slice(root.length + 1).split(/[\\/]/).join('/')
   const remotes = (await gitText(root, ['remote']))?.split('\n').map(line => line.trim()).filter(line => line !== '') ?? []
-  let remoteUrl: string | null = null
-  if (remotes.includes('origin')) remoteUrl = (await gitText(root, ['remote', 'get-url', 'origin']))?.trim() ?? null
-  if (remoteUrl === null && remotes[0] !== undefined) {
-    remoteUrl = (await gitText(root, ['remote', 'get-url', remotes[0]]))?.trim() ?? null
-  }
-
   const commit = (await gitText(root, ['rev-parse', '--verify', '--quiet', 'HEAD']))?.trim() ?? null
   if (commit === null || commit === '') return null
   const branchRaw = (await gitText(root, ['rev-parse', '--abbrev-ref', 'HEAD']))?.trim() ?? ''
   const branch = branchRaw === '' || branchRaw === 'HEAD' ? null : branchRaw
 
+  /**
+   * Pick the remote that actually carries this commit.
+   *
+   * A checkout can have several remotes — the common shape here is `origin`
+   * pointing at the upstream project and a personal remote (say `github`)
+   * pointing at the user's fork. Choosing `origin` blindly would advertise the
+   * upstream URL for a commit it does not even contain. The remote whose
+   * tracking branch contains HEAD is the right source, and it doubles as the
+   * proof that the commit is published.
+   */
   let pushed = false
-  if (branch !== null) {
-    const upstream = (await gitText(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`]))?.trim() ?? ''
-    if (upstream !== '') {
-      try {
-        await execFileAsync('git', ['-C', root, 'merge-base', '--is-ancestor', commit, upstream], { timeout: 10_000 })
-        pushed = true
-      } catch {
-        pushed = false
+  let remoteUrl: string | null = null
+  const candidates: Array<{ name: string; url: string; contains: boolean }> = []
+  for (const name of remotes) {
+    const url = (await gitText(root, ['remote', 'get-url', name]))?.trim() ?? ''
+    if (url === '') continue
+    let contains = false
+    if (branch !== null) {
+      const upstream = (await gitText(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/${name}/${branch}`]))?.trim() ?? ''
+      if (upstream !== '') {
+        try {
+          await execFileAsync('git', ['-C', root, 'merge-base', '--is-ancestor', commit, upstream], { timeout: 10_000 })
+          contains = true
+        } catch {
+          contains = false
+        }
       }
     }
+    candidates.push({ name, url, contains })
+  }
+  const chosen =
+    candidates.find(candidate => candidate.contains && candidate.name === 'origin') ??
+    candidates.find(candidate => candidate.contains) ??
+    candidates.find(candidate => candidate.name === 'origin') ??
+    candidates[0]
+  if (chosen !== undefined) {
+    remoteUrl = chosen.url
+    pushed = chosen.contains
   }
 
   const mainFile = options.mainFile ?? 'lib/index.js'

@@ -179,6 +179,31 @@ describe('resolveRestorableCheckout', () => {
     })
   })
 
+  it('picks the remote that carries HEAD when origin is an upstream without it', async () => {
+    // The common shape of a personal fork: origin = upstream (the commit was
+    // never pushed there), a second remote = the user's own repository.
+    const { repo, commit: firstCommit } = await makeRepo()
+    await writeFile(join(repo, 'CHANGELOG.md'), 'x\n', 'utf8')
+    await git(repo, ['add', '-A'])
+    await git(repo, ['commit', '-m', 'second'])
+    const second = (await git(repo, ['rev-parse', 'HEAD'])).trim()
+
+    const mine = join(repo, '..', 'mine.git')
+    await git(repo, ['init', '--bare', '-b', 'main', mine])
+    await git(repo, ['remote', 'add', 'mine', mine])
+    await git(repo, ['push', 'mine', 'main'])
+    // Point the personal remote at the GitHub URL (the bare path stays the transport).
+    await git(repo, ['remote', 'set-url', 'mine', 'https://github.com/alfredhuang211/demo-plugin.git'])
+    // `origin` still tracks the first commit only.
+    expect(firstCommit).not.toBe(second)
+
+    const facts = await inspectCheckout(repo, { packageName: 'demo-plugin' })
+    expect(facts?.pushed).toBe(true)
+    expect(facts?.remoteUrl).toContain('github.com/alfredhuang211/demo-plugin')
+    const spec = await resolveRestorableCheckout('demo-plugin', repo)
+    expect(spec?.installSpec).toBe(`github:alfredhuang211/demo-plugin#${second}`)
+  })
+
   it('refuses when the commit is not on GitHub, the entry point is missing, or the package name differs', async () => {
     const { repo } = await makeRepo()
     await git(repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/demo-plugin.git'])
