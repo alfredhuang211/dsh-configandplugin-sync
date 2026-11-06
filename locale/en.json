@@ -231,8 +231,8 @@
   "configScopesTitle": "Sync scope",
   "configScopesDesc": "A disabled section is neither uploaded nor downloaded.",
   "configScopesSecretsHint": "Secrets always leave this device encrypted; set the passphrase environment variable first.",
-  "configPassphraseEnvVar": "Passphrase environment variable",
-  "configPassphraseEnvVarHint": "Name of the environment variable holding the encryption passphrase, for example DSH_SYNC_PASSPHRASE; the value is never written to configuration.",
+  "configPassphraseEnvVar": "Passphrase environment variable name (the name, not the passphrase)",
+  "configPassphraseEnvVarHint": "Put the variable NAME here, e.g. DSH_SYNC_PASSPHRASE; the passphrase itself goes in ~/.dsh/.env, which DSH reads once at startup, so a change needs a restart.",
   "configPassphraseAvailable": "Passphrase available",
   "configPassphraseUnavailable": "Passphrase unavailable",
   "configExcludedCount": "{count} item(s) excluded",
@@ -423,5 +423,7 @@
   "opActionOutcome": "{ok}/{total} steps succeeded",
   "opWarnings": "{count} warning(s)",
   "opRestartRequired": "Some changes need a DSH restart to take effect.",
-  "opFailed": "{operation} failed: {message}"
+  "opFailed": "{operation} failed: {message}",
+  "configPassphraseEnvVarInvalid": "An environment variable name may only contain letters, digits and underscores, and cannot start with a digit; do not put the passphrase value here.",
+  "configPassphraseEnvVarNotSet": "Environment variable {name} has no value yet: put the passphrase in ~/.dsh/.env (a line {name}='your passphrase') and restart DSH."
 }

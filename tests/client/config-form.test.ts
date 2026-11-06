@@ -23,6 +23,7 @@ import {
   setPassphraseEnvVar,
   setScope,
   toggleProfile,
+  passphraseEnvVarIssue,
 } from '../../client/src/config-form'
 import type { ConfigForm } from '../../client/src/config-form'
 import { makeConfigView } from './fixtures'
@@ -239,5 +240,20 @@ describe('second/millisecond conversion', () => {
 
   it('round-trips whole seconds', () => {
     expect(msToSeconds(secondsToMs(42))).toBe(42)
+  })
+})
+
+describe('passphraseEnvVarIssue', () => {
+  it('accepts a POSIX identifier', () => {
+    expect(passphraseEnvVarIssue('DSH_SYNC_PASSPHRASE')).toBeNull()
+    expect(passphraseEnvVarIssue('  _MY_KEY_2  ')).toBeNull()
+  })
+
+  it('reports an empty field and a non-identifier value', () => {
+    expect(passphraseEnvVarIssue('   ')).toBe('empty')
+    expect(passphraseEnvVarIssue('my passphrase')).toBe('invalid')
+    expect(passphraseEnvVarIssue('sk-abc123')).toBe('invalid')
+    expect(passphraseEnvVarIssue('"quoted"')).toBe('invalid')
+    expect(passphraseEnvVarIssue('1LEADING')).toBe('invalid')
   })
 })

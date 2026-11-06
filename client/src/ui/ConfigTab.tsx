@@ -24,6 +24,7 @@ import {
   MAX_DELAY_MS,
   MAX_INTERVAL_MINUTES,
   msToSeconds,
+  passphraseEnvVarIssue,
   secondsToMs,
 } from '../config-form'
 import type { Translate } from '../i18n'
@@ -378,6 +379,7 @@ export function ConfigTab(props: ConfigTabProps): ReactElement {
         ? t('configBackendHintWebdav')
         : t('configBackendHintS3')
 
+  const passphraseIssue = passphraseEnvVarIssue(form.passphraseEnvVar)
   const excludedTotal = Object.values(form.excluded).reduce((sum, ids) => sum + ids.length, 0)
   const autoModeOptions: ReadonlyArray<{ value: AutoSyncMode; label: string }> = [
     { value: 'two-way', label: t('autoModeTwoWay') },
@@ -538,6 +540,15 @@ export function ConfigTab(props: ConfigTabProps): ReactElement {
               </Badge>
             </div>
           </Row>
+          {passphraseIssue === 'invalid' ? (
+            <Banner tone="error">{t('configPassphraseEnvVarInvalid')}</Banner>
+          ) : passphraseIssue === 'empty' || !view.passphraseAvailable ? (
+            <Banner tone="warn">
+              {t('configPassphraseEnvVarNotSet', {
+                name: form.passphraseEnvVar.trim() === '' ? 'DSH_SYNC_PASSPHRASE' : form.passphraseEnvVar.trim(),
+              })}
+            </Banner>
+          ) : null}
           <p className="dcs-hint">{t('configExcludedCount', { count: excludedTotal })}</p>
         </div>
       </Card>

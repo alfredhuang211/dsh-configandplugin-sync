@@ -71,6 +71,19 @@ export declare class StateStore {
     read(): Promise<LocalState>;
     write(state: LocalState): Promise<void>;
 }
+/**
+ * Normalize an environment-variable *name*.
+ *
+ * Only a POSIX shell identifier can name a variable; anything else (a value with
+ * spaces, quotes, dashes, or a non-string) is replaced by the fallback so the
+ * configuration cannot claim to reference something that can never resolve.
+ *
+ * This is a syntax check, not a secret check: a password that happens to look
+ * like an identifier (`alfred130211`) is syntactically a valid name. The
+ * settings page therefore labels the field as a *variable name* and warns when
+ * the named variable is not set, which is what surfaces that mistake.
+ */
+export declare function normalizeEnvName(value: unknown, fallback: string): string;
 /** The profile directory for one profile name. */
 export declare function profileDir(dshHome: string, profile: string): string;
 /** The file name (not path) of a profile. */

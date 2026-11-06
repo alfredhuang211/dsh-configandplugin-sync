@@ -186,6 +186,21 @@ export function setPassphraseEnvVar(form: ConfigForm, passphraseEnvVar: string):
 }
 
 /** Whether the user typed any new secret into the form. */
+/**
+ * Validate the passphrase *variable name* field.
+ *
+ * The field names an environment variable; the passphrase itself belongs in
+ * `~/.dsh/.env`. Only a POSIX identifier can name a variable, so a value with
+ * spaces, quotes or dashes is rejected inline instead of being saved into a
+ * setting that can never resolve. (`alfred130211` is syntactically valid, which
+ * is exactly why the page also warns when the named variable is not set.)
+ */
+export function passphraseEnvVarIssue(value: string): 'empty' | 'invalid' | null {
+  const trimmed = value.trim()
+  if (trimmed === '') return 'empty'
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed) ? null : 'invalid'
+}
+
 export function hasTypedSecret(form: ConfigForm): boolean {
   return (
     form.webdav.password !== '' ||
