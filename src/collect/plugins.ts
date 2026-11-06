@@ -585,20 +585,37 @@ export async function resolveRestorableCheckout(
   name: string,
   localPath: string,
 ): Promise<{ source: string; installSpec: string } | null> {
-  const manifest = parseJson<{ main?: unknown; module?: unknown }>((await readTextFile(join(localPath, 'package.json'))) ?? '')
+  const manifest = parseJson<{ name?: unknown; main?: unknown; module?: unknown }>(
+    (await readTextFile(join(localPath, 'package.json'))) ?? '',
+  )
+  // The directory must really be this package; a stray checkout of some other
+  // project must never be advertised as the plugin's source.
+  if (manifest === null || manifest.name !== name) return null
   const mainFile =
-    typeof manifest?.main === 'string' && manifest.main.trim() !== ''
+    typeof manifest.main === 'string' && manifest.main.trim() !== ''
       ? manifest.main.trim()
-      : typeof manifest?.module === 'string' && manifest.module.trim() !== ''
+      : typeof manifest.module === 'string' && manifest.module.trim() !== ''
         ? manifest.module.trim()
         : 'lib/index.js'
   const facts = await inspectCheckout(localPath, { packageName: name, mainFile })
   if (facts === null || facts.github === null) return null
-  if (!facts.rootPackage || !facts.pushed || !facts.hasMain) return null
+  if (!facts.pushed || !facts.hasMain) return null
   const slug = `${facts.github.owner}/${facts.github.repo}`
+
+  // A single-package repository installs by repository spec. A package inside a
+  // monorepo installs from the same repository plus pnpm's `&path:` selector,
+  // which is how a workspace plugin stays reproducible without a second repo.
+  if (facts.rootPackage) {
+    return {
+      source: facts.branch === null ? `github:${slug}` : `github:${slug}#${facts.branch}`,
+      installSpec: `github:${slug}#${facts.commit}`,
+    }
+  }
+  if (facts.relativeDir === '' || !/^[A-Za-z0-9._\/-]+$/.test(facts.relativeDir)) return null
+  const subPath = `&path:/${facts.relativeDir}`
   return {
-    source: facts.branch === null ? `github:${slug}` : `github:${slug}#${facts.branch}`,
-    installSpec: `github:${slug}#${facts.commit}`,
+    source: facts.branch === null ? `github:${slug}${subPath}` : `github:${slug}#${facts.branch}${subPath}`,
+    installSpec: `github:${slug}#${facts.commit}${subPath}`,
   }
 }
 

@@ -141,7 +141,45 @@ describe('resolveRestorableCheckout', () => {
     })
   })
 
-  it('refuses when the commit is not on GitHub, the entry point is missing, or the repo is a monorepo', async () => {
+  it('uses pnpm path: selector for a package inside a monorepo', async () => {
+    // A workspace repo: root package is private and different, the plugin lives
+    // in packages/<name> with its built entry point committed.
+    const root = await mkdtemp(join(tmpdir(), 'plugin-checkout-'))
+    roots.push(root)
+    const repo = join(root, 'mono')
+    const bare = join(root, 'mono-remote.git')
+    await mkdir(join(repo, 'packages', 'demo-plugin', 'lib'), { recursive: true })
+    await git(root, ['init', '--bare', '-b', 'main', bare])
+    await git(repo, ['init', '-b', 'main'])
+    await git(repo, ['config', 'user.name', 'test'])
+    await git(repo, ['config', 'user.email', 'test@example.com'])
+    await git(repo, ['config', 'commit.gpgsign', 'false'])
+    await writeFile(
+      join(repo, 'package.json'),
+      JSON.stringify({ name: 'workspace-root', private: true, workspaces: ['packages/*'] }, null, 2),
+      'utf8',
+    )
+    await writeFile(
+      join(repo, 'packages', 'demo-plugin', 'package.json'),
+      JSON.stringify({ name: 'demo-plugin', version: '2.0.0', main: 'lib/index.js' }, null, 2),
+      'utf8',
+    )
+    await writeFile(join(repo, 'packages', 'demo-plugin', 'lib', 'index.js'), 'export default function apply() {}\n', 'utf8')
+    await git(repo, ['add', '-A'])
+    await git(repo, ['commit', '-m', 'initial'])
+    await git(repo, ['remote', 'add', 'origin', bare])
+    await git(repo, ['push', '-u', 'origin', 'main'])
+    const commit = (await git(repo, ['rev-parse', 'HEAD'])).trim()
+    await git(repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/demo-mono.git'])
+
+    const spec = await resolveRestorableCheckout('demo-plugin', join(repo, 'packages', 'demo-plugin'))
+    expect(spec).toEqual({
+      source: 'github:alfredhuang211/demo-mono#main&path:/packages/demo-plugin',
+      installSpec: `github:alfredhuang211/demo-mono#${commit}&path:/packages/demo-plugin`,
+    })
+  })
+
+  it('refuses when the commit is not on GitHub, the entry point is missing, or the package name differs', async () => {
     const { repo } = await makeRepo()
     await git(repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/demo-plugin.git'])
     await writeFile(join(repo, 'more.txt'), 'x\n', 'utf8')
@@ -153,8 +191,8 @@ describe('resolveRestorableCheckout', () => {
     await git(noEntry.repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/x.git'])
     expect(await resolveRestorableCheckout('demo-plugin', noEntry.repo)).toBeNull()
 
-    const mono = await makeRepo({ packageName: 'workspace-root' })
-    await git(mono.repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/y.git'])
-    expect(await resolveRestorableCheckout('demo-plugin', mono.repo)).toBeNull()
+    const wrongName = await makeRepo({ packageName: 'some-other-plugin' })
+    await git(wrongName.repo, ['remote', 'set-url', 'origin', 'https://github.com/alfredhuang211/y.git'])
+    expect(await resolveRestorableCheckout('demo-plugin', wrongName.repo)).toBeNull()
   })
 })

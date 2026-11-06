@@ -217,6 +217,15 @@ src/
 client/src/           Web 设置页（React，注入 settings.section）
 ```
 
+## 发布与命名约定
+
+- **GitHub 仓库**：`alfredhuang211/<包名>`，分支 `main`（例如 `dsh-ssh-hosts`、`dsh-webdav-sync`）。
+- **npm 包名**：统一带 scope —— `@alfredhuang211/<包名>`，避免与社区同名包冲突（例如 npm 上 `dsh-webdav-sync` 已属于 `GaoHu1997/dsh-webdav`）。
+  - 公开分发：`npm publish --access public`（或在 `package.json` 设 `"publishConfig": { "access": "public" }`）；
+  - 仅内部使用：保持默认私有可见性，用 `npm publish`。
+- 发布后，插件清单里的 `installSpec` 会自然变成 `@alfredhuang211/<包名>@<版本>`，其他设备可直接从 registry 还原；未发布时用 `github:alfredhuang211/<仓库>#<commit>`。
+- `link:` 安装但实为 **GitHub 干净检出**的插件会被自动识别成可还原规格；monorepo 内的包使用 `github:owner/repo#<commit>&path:/<子目录>`（pnpm 的子目录选择器）。
+
 ## 已知限制
 
 - 只能同步**当前运行中的 profile**（其他 profile 的插件状态由其它 profile 的运行实例负责）。

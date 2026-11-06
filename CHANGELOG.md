@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## Unreleased
+
+### 新增 / Added
+
+- 插件清单只列后装插件：DSH 官方内置/安装提供的 bundle 被隐藏，仅以 `hiddenOfficialPlugins` 计数。
+- `link:` 安装的插件若实为干净的 GitHub 检出（HEAD 已推送、入口文件已提交、仓库根就是该包），自动记为可还原：`source=github:owner/repo#branch`、`installSpec=github:owner/repo#commit`；monorepo 内的包用 `#<commit>&path:/<subdir>`（pnpm 子目录选择器）。
+- 密钥口令新增本机文件来源：`~/.dsh/dsh-configandplugin-sync/passphrase`（0600，不同步，立即生效），并在密钥页提供保存/清除；口令解析顺序为 一次性输入 > 环境变量 > 本机文件。
+- 恢复配置时跳过"`file://` 且本机不存在"的 Loader 条目，避免导入其他设备独有的本地插件并泄漏其路径。
+
+### 修复 / Fixed
+
+- 配置文件中的明文密钥在同步副本中被掩码为 `***`，恢复时用本机值回填，不再随原文上传。
+- 切换存储目标时不再复用上一个存储的 git 工作目录缓存（曾导致新存储读到旧文档、首次备份变成空操作）。
+- 「口令环境变量名」栏只接受 POSIX 标识符；误填口令值会被拒绝并提示改用本机口令文件。
+- `dsh_sync_status` 的告警不再污染 `lastError`，改为独立 `warnings` 列表。
+
+### 说明 / Notes
+
+- 发布约定：npm 包名统一 `@alfredhuang211/<包名>`。
+- DSH 禁止在 `.env` 中设置任何 `DSH_` / `XDG_` / `DYLD_` / `BASH_FUNC_` 前缀变量，因此口令不能用 `~/.dsh/.env` 提供。
+
 ## 0.1.0
 
 首次发布 / First release.

@@ -181,6 +181,15 @@ npm run build       # tsc (host) + esbuild (client)
 npm run verify      # all of the above
 ```
 
+## Publishing and naming
+
+- **GitHub**: `alfredhuang211/<package>` on `main` (e.g. `dsh-ssh-hosts`, `dsh-webdav-sync`).
+- **npm**: always scoped — `@alfredhuang211/<package>` — so a name never collides with the community's (npm's `dsh-webdav-sync` already belongs to `GaoHu1997/dsh-webdav`).
+  - Public: `npm publish --access public` (or `"publishConfig": { "access": "public" }`);
+  - Internal only: keep the default private visibility and run `npm publish`.
+- After publishing, an inventory `installSpec` naturally becomes `@alfredhuang211/<package>@<version>` and other devices restore from the registry; before publishing it is `github:alfredhuang211/<repo>#<commit>`.
+- A `link:`-installed plugin that is a clean GitHub checkout is recognized as restorable; a package inside a monorepo uses pnpm's subdirectory selector, `github:owner/repo#<commit>&path:/<subdir>`.
+
 ## Known limitations
 
 - Only the **active profile** can be synchronized (other profiles are handled by their own running instance).
