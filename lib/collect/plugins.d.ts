@@ -47,6 +47,61 @@ export interface PluginsCollectResult {
     /** Which source produced the records. */
     source: 'plugin-manager' | 'profile-manifest';
 }
+/** Parse a GitHub remote URL into `owner/repo`, or null for anything else. */
+export declare function parseGithubRemote(url: string): {
+    owner: string;
+    repo: string;
+} | null;
+/** Facts about a local git checkout of a plugin. */
+export interface CheckoutFacts {
+    /** Repository root (the directory holding `.git`). */
+    root: string;
+    /** Plugin directory relative to the root, POSIX style ('' for a root package). */
+    relativeDir: string;
+    /** Raw remote URL of `origin` (or the first remote). */
+    remoteUrl: string | null;
+    /** GitHub coordinates, when the remote is on github.com. */
+    github: {
+        owner: string;
+        repo: string;
+    } | null;
+    /** HEAD commit, or null when the checkout has no commit. */
+    commit: string | null;
+    /** Current branch, or null when detached. */
+    branch: string | null;
+    /** Whether HEAD is contained in the remote-tracking branch (i.e. pushed). */
+    pushed: boolean;
+    /** Whether the package's `main` file exists in the committed tree. */
+    hasMain: boolean;
+    /** Whether the repository root is itself this package (not a monorepo). */
+    rootPackage: boolean;
+}
+/**
+ * Inspect a local directory as a git checkout of a plugin.
+ *
+ * This is what lets a `link:`-installed plugin that is really a clean GitHub
+ * checkout become restorable on another device: the inventory records
+ * `github:owner/repo#<commit>` instead of "a directory on this machine".
+ * Nothing is installed and no network call is made — only local git state and
+ * the committed tree are read.
+ */
+export declare function inspectCheckout(pluginDir: string, options: {
+    packageName: string;
+    mainFile?: string | undefined;
+}): Promise<CheckoutFacts | null>;
+/**
+ * Turn a local plugin checkout into a GitHub install spec, when that is honest.
+ *
+ * Conditions: the directory is a git checkout whose root package *is* the
+ * plugin (a monorepo cannot be installed by repository spec), the remote is on
+ * GitHub, HEAD is already pushed (otherwise the commit would not exist for the
+ * other device), and the built entry point is committed (DSH's pnpm install
+ * blocks build scripts, so a repository without `lib/` cannot work).
+ */
+export declare function resolveRestorableCheckout(name: string, localPath: string): Promise<{
+    source: string;
+    installSpec: string;
+} | null>;
 /**
  * Collect one profile's plugin inventory.
  *

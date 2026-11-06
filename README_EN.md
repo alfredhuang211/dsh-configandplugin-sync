@@ -22,7 +22,7 @@ This plugin extracts exactly those declaration-shaped facts, encrypts/merges the
 |---|---|---|
 | DSH base configuration | ✅ | `$DSH_HOME/cordis.patch.yml`, `profiles/<name>/cordis.patch.yml`, `cordis.yml`, `package.json`; merged per Loader entry id, preserving comments and `!!js` |
 | Model providers | ✅ | `providers` extracted from LLM entries (displayName/api/baseURL/apiKeyEnv/models) plus the `agent-default-model` selection |
-| Plugin inventory / version / source | ✅ | name, version, `npm/git/local-path/tarball/official`, reproducible install spec, enabled state |
+| Plugin inventory / version / source | ✅ | name, version, `npm/git/local-path/tarball/official`, reproducible install spec, enabled state; a `link:`-installed plugin that is really a clean checkout of a single-package GitHub repository is recorded as `github:owner/repo#<commit>` and becomes restorable on another device |
 | Plugin configuration | ✅ | the primary entry's values; secret-looking keys are dropped before writing and reported as `redacted` |
 | Secrets / keys / credential records | ✅ (needs passphrase) | encrypted before leaving the device, see [Secrets](#secrets-and-passphrases) |
 | MCP servers | ✅ | serverName, transport, install method and package version, command/args/url, header/env **names**, remaining config |

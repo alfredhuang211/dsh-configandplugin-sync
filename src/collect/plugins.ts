@@ -15,8 +15,10 @@
  * @module collect/plugins
  */
 
+import { execFile } from 'node:child_process'
 import { lstat, realpath } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { PACKAGE_NAME } from '../constants.js'
 import { readTextFile } from '../core/fs.js'
 import { parseJson, asJsonObject } from '../core/json.js'
@@ -379,8 +381,145 @@ function bundleErrorText(bundle: DshBundleInfo): string | undefined {
   return undefined
 }
 
+const execFileAsync = promisify(execFile)
+
+/** Run one git command, returning null on any failure (git may be absent). */
+async function gitText(cwd: string, args: readonly string[]): Promise<string | null> {
+  try {
+    const result = await execFileAsync('git', ['-C', cwd, ...args], {
+      maxBuffer: 1024 * 1024,
+      timeout: 10_000,
+    })
+    return result.stdout
+  } catch {
+    return null
+  }
+}
+
+/** Parse a GitHub remote URL into `owner/repo`, or null for anything else. */
+export function parseGithubRemote(url: string): { owner: string; repo: string } | null {
+  const trimmed = url.trim()
+  if (trimmed === '') return null
+  // https://github.com/owner/repo(.git) | git@github.com:owner/repo(.git) | ssh://git@github.com/owner/repo
+  const match = /(?:^|@|\/\/)github\.com[:/]+([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/.exec(trimmed)
+  if (match === null) return null
+  const owner = match[1] ?? ''
+  const repo = match[2] ?? ''
+  if (owner === '' || repo === '') return null
+  return { owner, repo }
+}
+
+/** Facts about a local git checkout of a plugin. */
+export interface CheckoutFacts {
+  /** Repository root (the directory holding `.git`). */
+  root: string
+  /** Plugin directory relative to the root, POSIX style ('' for a root package). */
+  relativeDir: string
+  /** Raw remote URL of `origin` (or the first remote). */
+  remoteUrl: string | null
+  /** GitHub coordinates, when the remote is on github.com. */
+  github: { owner: string; repo: string } | null
+  /** HEAD commit, or null when the checkout has no commit. */
+  commit: string | null
+  /** Current branch, or null when detached. */
+  branch: string | null
+  /** Whether HEAD is contained in the remote-tracking branch (i.e. pushed). */
+  pushed: boolean
+  /** Whether the package's `main` file exists in the committed tree. */
+  hasMain: boolean
+  /** Whether the repository root is itself this package (not a monorepo). */
+  rootPackage: boolean
+}
+
+/**
+ * Inspect a local directory as a git checkout of a plugin.
+ *
+ * This is what lets a `link:`-installed plugin that is really a clean GitHub
+ * checkout become restorable on another device: the inventory records
+ * `github:owner/repo#<commit>` instead of "a directory on this machine".
+ * Nothing is installed and no network call is made — only local git state and
+ * the committed tree are read.
+ */
+export async function inspectCheckout(
+  pluginDir: string,
+  options: { packageName: string; mainFile?: string | undefined },
+): Promise<CheckoutFacts | null> {
+  let root = resolve(pluginDir)
+  let found = false
+  for (let depth = 0; depth < 12; depth += 1) {
+    try {
+      const info = await lstat(join(root, '.git'))
+      if (info.isDirectory() || info.isFile()) {
+        found = true
+        break
+      }
+    } catch {
+      // keep walking up
+    }
+    const parent = dirname(root)
+    if (parent === root) break
+    root = parent
+  }
+  if (!found) return null
+
+  const relativeDir = resolve(pluginDir) === root ? '' : resolve(pluginDir).slice(root.length + 1).split(/[\\/]/).join('/')
+  const remotes = (await gitText(root, ['remote']))?.split('\n').map(line => line.trim()).filter(line => line !== '') ?? []
+  let remoteUrl: string | null = null
+  if (remotes.includes('origin')) remoteUrl = (await gitText(root, ['remote', 'get-url', 'origin']))?.trim() ?? null
+  if (remoteUrl === null && remotes[0] !== undefined) {
+    remoteUrl = (await gitText(root, ['remote', 'get-url', remotes[0]]))?.trim() ?? null
+  }
+
+  const commit = (await gitText(root, ['rev-parse', '--verify', '--quiet', 'HEAD']))?.trim() ?? null
+  if (commit === null || commit === '') return null
+  const branchRaw = (await gitText(root, ['rev-parse', '--abbrev-ref', 'HEAD']))?.trim() ?? ''
+  const branch = branchRaw === '' || branchRaw === 'HEAD' ? null : branchRaw
+
+  let pushed = false
+  if (branch !== null) {
+    const upstream = (await gitText(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`]))?.trim() ?? ''
+    if (upstream !== '') {
+      try {
+        await execFileAsync('git', ['-C', root, 'merge-base', '--is-ancestor', commit, upstream], { timeout: 10_000 })
+        pushed = true
+      } catch {
+        pushed = false
+      }
+    }
+  }
+
+  const mainFile = options.mainFile ?? 'lib/index.js'
+  const mainPath = relativeDir === '' ? mainFile : `${relativeDir}/${mainFile}`
+  let hasMain = false
+  try {
+    await execFileAsync('git', ['-C', root, 'cat-file', '-e', `${commit}:${mainPath}`], { timeout: 10_000 })
+    hasMain = true
+  } catch {
+    hasMain = false
+  }
+
+  let rootPackage = false
+  if (relativeDir === '') {
+    const manifest = parseJson<{ name?: unknown; private?: unknown }>((await readTextFile(join(root, 'package.json'))) ?? '')
+    rootPackage =
+      manifest !== null && manifest.name === options.packageName && manifest.private !== true
+  }
+
+  return {
+    root,
+    relativeDir,
+    remoteUrl,
+    github: remoteUrl === null ? null : parseGithubRemote(remoteUrl),
+    commit,
+    branch,
+    pushed,
+    hasMain,
+    rootPackage,
+  }
+}
+
 /** Build the common tail of a record from its origin and version facts. */
-function finalizeRecord(args: {
+async function finalizeRecord(args: {
   id: string
   name: string
   version: string | null
@@ -391,7 +530,7 @@ function finalizeRecord(args: {
   context: ScanContext
   displayName?: string | undefined
   error?: string | undefined
-}): PluginRecord {
+}): Promise<PluginRecord> {
   const installSpec = resolveInstallSpec(args.name, args.originInfo, args.version)
   const record: PluginRecord = {
     id: args.id,
@@ -415,7 +554,52 @@ function finalizeRecord(args: {
   if (args.displayName !== undefined) record.displayName = args.displayName
   if (args.originInfo.source !== undefined) record.source = args.originInfo.source
   if (args.error !== undefined) record.error = redactText(args.error)
+
+  // A `link:` plugin that is really a clean GitHub checkout can be restored on
+  // another device from that repository; record the reproducible spec instead
+  // of "a directory on this machine".
+  if (!args.builtIn && args.originInfo.origin === 'local-path' && args.originInfo.localPath !== undefined) {
+    const checkout = await resolveRestorableCheckout(args.name, args.originInfo.localPath)
+    if (checkout !== null) {
+      record.origin = 'git'
+      record.source = checkout.source
+      record.installSpec = checkout.installSpec
+      record.restorable = true
+      record.syncable = true
+      record.id = args.name
+    }
+  }
   return record
+}
+
+/**
+ * Turn a local plugin checkout into a GitHub install spec, when that is honest.
+ *
+ * Conditions: the directory is a git checkout whose root package *is* the
+ * plugin (a monorepo cannot be installed by repository spec), the remote is on
+ * GitHub, HEAD is already pushed (otherwise the commit would not exist for the
+ * other device), and the built entry point is committed (DSH's pnpm install
+ * blocks build scripts, so a repository without `lib/` cannot work).
+ */
+export async function resolveRestorableCheckout(
+  name: string,
+  localPath: string,
+): Promise<{ source: string; installSpec: string } | null> {
+  const manifest = parseJson<{ main?: unknown; module?: unknown }>((await readTextFile(join(localPath, 'package.json'))) ?? '')
+  const mainFile =
+    typeof manifest?.main === 'string' && manifest.main.trim() !== ''
+      ? manifest.main.trim()
+      : typeof manifest?.module === 'string' && manifest.module.trim() !== ''
+        ? manifest.module.trim()
+        : 'lib/index.js'
+  const facts = await inspectCheckout(localPath, { packageName: name, mainFile })
+  if (facts === null || facts.github === null) return null
+  if (!facts.rootPackage || !facts.pushed || !facts.hasMain) return null
+  const slug = `${facts.github.owner}/${facts.github.repo}`
+  return {
+    source: facts.branch === null ? `github:${slug}` : `github:${slug}#${facts.branch}`,
+    installSpec: `github:${slug}#${facts.commit}`,
+  }
 }
 
 /** Build one record from a plugin-manager bundle row. */
@@ -453,7 +637,7 @@ async function buildBundleRecord(
   }
   const id = originInfo.origin === 'local-path' ? `local:${name}` : name
   const displayName = titleOf(bundle.meta) ?? titleOf(findPluginInfo(plugins, { moduleName: name })?.meta)
-  return finalizeRecord({
+  return await finalizeRecord({
     id,
     name,
     version,
@@ -486,7 +670,7 @@ async function buildOrphanRecord(plugin: DshPluginInfo, context: ScanContext): P
     : dependencyVersion ?? (await readInstalledVersion(context, name, originInfo.localPath))
   const row: PluginRowRecord = { moduleName: name, enabled: plugin.enabled === true }
   if (entryId !== undefined) row.entryId = entryId
-  return finalizeRecord({
+  return await finalizeRecord({
     id: originInfo.origin === 'local-path' ? `local:${name}` : name,
     name,
     version,
@@ -576,7 +760,7 @@ async function buildFromProfileManifest(context: ScanContext): Promise<PluginRec
     const enabled = rows.length === 0 ? true : rows.some(row => row.enabled)
     if (rows.length === 0) rows.push({ moduleName: trimmed, enabled: true })
     records.push(
-      finalizeRecord({
+      await finalizeRecord({
         id: originInfo.origin === 'local-path' ? `local:${trimmed}` : trimmed,
         name: trimmed,
         version,
@@ -602,7 +786,7 @@ async function buildFromProfileManifest(context: ScanContext): Promise<PluginRec
     const originInfo: OriginInfo = classifySource(name, { linkedDir, profileDir: context.profileDir })
     const version = await readInstalledVersion(context, name, originInfo.localPath)
     records.push(
-      finalizeRecord({
+      await finalizeRecord({
         id: originInfo.origin === 'local-path' ? `local:${name}` : name,
         name,
         version,

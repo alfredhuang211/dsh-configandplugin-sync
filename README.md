@@ -22,7 +22,7 @@
 |---|---|---|
 | DSH 基础配置 | ✅ | `$DSH_HOME/cordis.patch.yml`、`profiles/<name>/cordis.patch.yml`、`cordis.yml`、`package.json`；逐条按 entry id 合并，保留注释与 `!!js` |
 | 模型 provider | ✅ | 从 LLM 条目抽取 `providers`（displayName/api/baseURL/apiKeyEnv/models）+ `agent-default-model` 默认选择 |
-| 插件清单 / 版本 / 安装来源 | ✅ | 包名、版本、`npm/git/local-path/tarball/official`、可复现安装规格、启用状态 |
+| 插件清单 / 版本 / 安装来源 | ✅ | 包名、版本、`npm/git/local-path/tarball/official`、可复现安装规格、启用状态；`link:` 安装但实为 **GitHub 单包仓库干净检出**的插件会自动识别为 `github:owner/repo#<commit>`，从而可在其他设备还原 |
 | 插件自身配置 | ✅ | 每个第三方插件主条目的配置值；敏感键在写入前剔除并标记为 `redacted` |
 | 密钥 / key / 凭据记录 | ✅（需口令） | 加密后同步，见 [密钥与口令](#密钥与口令) |
 | MCP 服务 | ✅ | serverName、transport、安装方式与包版本、command/args/url、header/env **名称**、其余配置 |
