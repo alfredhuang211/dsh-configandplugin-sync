@@ -1,0 +1,90 @@
+{
+  "name": "dsh-configandplugin-sync",
+  "version": "0.1.0",
+  "description": "DSH 配置与插件同步 — 跨设备同步 DeepSeek Harness 的配置、模型 provider、插件清单与配置、密钥与 MCP 服务；支持 WebDAV、Git 与 S3 兼容存储，不存储插件代码。 / DSH Config & Plugin Sync — synchronize DSH configuration, model providers, plugin inventory and configs, secrets and MCP servers across devices over WebDAV, Git, or S3-compatible storage, without storing plugin code.",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "sync",
+    "backup",
+    "webdav",
+    "git",
+    "s3",
+    "mcp",
+    "secrets"
+  ],
+  "license": "MIT",
+  "author": "alfredhuang",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "icon": "./assets/icon.png",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "npm run build:host && npm run build:client",
+    "build:host": "tsc -p tsconfig.build.json",
+    "build:client": "node scripts/build-client.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:watch": "vitest",
+    "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\"",
+    "prepack": "npm run clean && npm run build",
+    "verify": "npm run typecheck && npm run build && npm test"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/icon.png",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "assets/icon.png",
+    "locale",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.28.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alfredhuang211/dsh-configandplugin-sync.git"
+  },
+  "homepage": "https://github.com/alfredhuang211/dsh-configandplugin-sync#readme",
+  "bugs": {
+    "url": "https://github.com/alfredhuang211/dsh-configandplugin-sync/issues"
+  }
+}

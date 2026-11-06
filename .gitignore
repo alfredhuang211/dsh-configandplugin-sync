@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output (lib/ IS committed on purpose: DSH installs plugins with pnpm,
+# which blocks dependency build scripts, so a Git install needs the built half
+# in the repository. Rebuild before committing a release.)
+dist/
+*.tsbuildinfo
+
+# Test and tool output
+coverage/
+.vitest/
+test-results/
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+
+# Local scratch (never commit runtime state, credentials or sync material)
+.dsh-sync-test/
+tmp/
+*.tgz
