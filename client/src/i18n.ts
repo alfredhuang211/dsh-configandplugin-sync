@@ -334,6 +334,7 @@ export const zh: Record<string, string> = {
   pluginsDesc: '仅同步插件的名称、版本、来源、安装规格与启用状态；插件代码与本机目录不会上传，也不会在远端重建。',
   pluginsNoCodeNotice: '插件代码不会同步：恢复设备时按安装规格重新安装，本地路径插件无法恢复。',
   pluginsCount: '共 {count} 个插件',
+  pluginsOfficialHidden: '已隐藏 {count} 个 DeepSeek 官方内置插件（不属于后装插件，不参与同步）',
   pluginsRefresh: '刷新清单',
   pluginsLoadFailed: '加载插件清单失败：{message}',
   pluginsEmpty: '本机没有已安装的第三方插件。',
@@ -790,6 +791,8 @@ export const en: Record<string, string> = {
   pluginsDesc: 'Only plugin names, versions, origins, install specs, and enabled state are synchronized; plugin code and local directories are never uploaded or recreated remotely.',
   pluginsNoCodeNotice: 'Plugin code is not synced: a new device reinstalls from the install spec, and local-path plugins cannot be restored.',
   pluginsCount: '{count} plugins',
+  pluginsOfficialHidden:
+    '{count} DeepSeek built-in bundles are hidden (not post-installed plugins, never synchronized)',
   pluginsRefresh: 'Refresh inventory',
   pluginsLoadFailed: 'Could not load the plugin inventory: {message}',
   pluginsEmpty: 'No third-party plugins are installed on this device.',

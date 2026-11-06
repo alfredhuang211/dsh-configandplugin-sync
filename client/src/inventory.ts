@@ -41,6 +41,19 @@ export function filterPlugins(
   })
 }
 
+/**
+ * DeepSeek official/built-in bundles the Host left out of the plugin list.
+ *
+ * The inventory is a list of post-installed plugins; the page shows this count
+ * so a user still knows the official bundles exist and are simply not part of
+ * the synchronized inventory.
+ */
+export function hiddenOfficialPlugins(response: InventoryResponse | null): number {
+  if (response === null) return 0
+  const count = response.hiddenOfficialPlugins
+  return typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : 0
+}
+
 /** How many listed plugins are enabled (used by the header summary). */
 export function countEnabledPlugins(rows: readonly InventoryPluginRow[]): number {
   return rows.filter(row => row.enabled).length

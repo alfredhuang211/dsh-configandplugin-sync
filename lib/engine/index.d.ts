@@ -161,6 +161,12 @@ export interface InventoryView {
     };
     /** Plugins that carry synchronized configuration. */
     pluginConfigs: number;
+    /**
+     * How many DeepSeek official/built-in bundles were left out of `plugins`.
+     * The inventory lists post-installed plugins only; the count keeps the page
+     * honest about what it is not showing.
+     */
+    hiddenOfficialPlugins: number;
     /** The profile's default model selection, when declared. */
     defaultModel: {
         provider?: string;
@@ -197,6 +203,17 @@ export interface PluginInspectView {
 }
 /** Create the sync engine. */
 export declare function createEngine(deps: SyncEngineDeps): SyncEngine;
+/**
+ * Whether a plugin is provided by DeepSeek itself.
+ *
+ * A built-in bundle ships with DSH (or is offered by the installation), so it is
+ * not a post-installed plugin: it is never listed in the inventory and never
+ * synchronized.
+ */
+export declare function isOfficialPlugin(plugin: {
+    builtIn?: boolean;
+    origin?: string;
+}): boolean;
 /** Whether one section is enabled by the configuration scopes. */
 export declare function sectionEnabled(config: SyncConfig, section: SectionId): boolean;
 /** Whether an action mutates this device. */

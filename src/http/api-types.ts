@@ -283,6 +283,8 @@ export interface InventoryResponse {
   dsh: { files: number; entries: number; bundles: number }
   /** Plugins that carry synchronized configuration (the Host always sends it). */
   pluginConfigs?: number
+  /** DeepSeek official/built-in bundles left out of `plugins`. */
+  hiddenOfficialPlugins?: number
   /** The profile's default model selection, when declared. */
   defaultModel?: { provider?: string; model?: string } | null
   /** Non-fatal findings from the scan, safe to display. */

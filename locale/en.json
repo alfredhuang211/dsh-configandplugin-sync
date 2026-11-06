@@ -280,6 +280,7 @@
   "pluginsDesc": "Only plugin names, versions, origins, install specs, and enabled state are synchronized; plugin code and local directories are never uploaded or recreated remotely.",
   "pluginsNoCodeNotice": "Plugin code is not synced: a new device reinstalls from the install spec, and local-path plugins cannot be restored.",
   "pluginsCount": "{count} plugins",
+  "pluginsOfficialHidden": "{count} DeepSeek built-in bundles are hidden (not post-installed plugins, never synchronized)",
   "pluginsRefresh": "Refresh inventory",
   "pluginsLoadFailed": "Could not load the plugin inventory: {message}",
   "pluginsEmpty": "No third-party plugins are installed on this device.",

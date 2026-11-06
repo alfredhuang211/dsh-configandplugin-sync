@@ -195,6 +195,12 @@ export interface InventoryView {
   dsh: { files: number; entries: number; bundles: number }
   /** Plugins that carry synchronized configuration. */
   pluginConfigs: number
+  /**
+   * How many DeepSeek official/built-in bundles were left out of `plugins`.
+   * The inventory lists post-installed plugins only; the count keeps the page
+   * honest about what it is not showing.
+   */
+  hiddenOfficialPlugins: number
   /** The profile's default model selection, when declared. */
   defaultModel: { provider?: string; model?: string } | null
   /** Non-fatal findings from the scan, safe to display. */
@@ -837,9 +843,15 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     const active = assertProfile(profile)
     const snapshot = await collect(config, true)
     const secrets = await readLocalSecrets(config, snapshot.providers.map(provider => provider.apiKeyEnv ?? '').filter(name => name !== ''))
+    // The inventory is the list of what the user installed. DeepSeek's own
+    // built-in bundles are not something a user "installs" or synchronizes, so
+    // they are hidden here and only counted (mirroring the synchronized
+    // `plugins` section, which never contains them either).
+    const listed = snapshot.plugins.filter(plugin => !isOfficialPlugin(plugin))
+    const hiddenOfficial = snapshot.plugins.length - listed.length
     return {
       profile: active,
-      plugins: snapshot.plugins.map(plugin => ({
+      plugins: listed.map(plugin => ({
         id: plugin.id,
         name: plugin.name,
         version: plugin.version,
@@ -881,6 +893,7 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
         bundles: snapshot.dsh.bundles.length,
       },
       pluginConfigs: snapshot.pluginConfigs.length,
+      hiddenOfficialPlugins: hiddenOfficial,
       defaultModel: snapshot.defaultModel === null
         ? null
         : {
@@ -1138,6 +1151,17 @@ export function createEngine(deps: SyncEngineDeps): SyncEngine {
     busy: () => runningOperation !== null,
     config: () => deps.configStore.read(),
   }
+}
+
+/**
+ * Whether a plugin is provided by DeepSeek itself.
+ *
+ * A built-in bundle ships with DSH (or is offered by the installation), so it is
+ * not a post-installed plugin: it is never listed in the inventory and never
+ * synchronized.
+ */
+export function isOfficialPlugin(plugin: { builtIn?: boolean; origin?: string }): boolean {
+  return plugin.builtIn === true || plugin.origin === 'official'
 }
 
 /** Whether one section is enabled by the configuration scopes. */

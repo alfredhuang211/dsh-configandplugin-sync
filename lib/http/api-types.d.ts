@@ -226,6 +226,8 @@ export interface InventoryResponse {
     };
     /** Plugins that carry synchronized configuration (the Host always sends it). */
     pluginConfigs?: number;
+    /** DeepSeek official/built-in bundles left out of `plugins`. */
+    hiddenOfficialPlugins?: number;
     /** The profile's default model selection, when declared. */
     defaultModel?: {
         provider?: string;

@@ -9,6 +9,7 @@ import {
   countEnabledPlugins,
   countRestorablePlugins,
   filterPlugins,
+  hiddenOfficialPlugins,
   mcpEndpoint,
   mcpEnvNames,
   mcpHeaderNames,
@@ -153,5 +154,32 @@ describe('MCP projections', () => {
     ])
     expect(mcpEnvNames(mcp({ envNames: ['  ', 'GITHUB_TOKEN'] }))).toEqual(['GITHUB_TOKEN'])
     expect(mcpHeaderNames(mcp({ headerNames: [] }))).toEqual([])
+  })
+})
+
+describe('hiddenOfficialPlugins', () => {
+  /** Minimal response wrapping the given rows plus a hidden count. */
+  function response(hidden: number | undefined): InventoryResponse {
+    return {
+      profile: 'desktop',
+      plugins: [],
+      providers: [],
+      mcp: [],
+      secrets: { refs: 0, records: 0, encrypted: false },
+      dsh: { files: 0, entries: 0, bundles: 0 },
+      ...(hidden === undefined ? {} : { hiddenOfficialPlugins: hidden }),
+    }
+  }
+
+  it('reports the count the Host excluded from the plugin rows', () => {
+    expect(hiddenOfficialPlugins(response(26))).toBe(26)
+  })
+
+  it('treats an absent, zero or invalid count as nothing hidden', () => {
+    expect(hiddenOfficialPlugins(response(undefined))).toBe(0)
+    expect(hiddenOfficialPlugins(response(0))).toBe(0)
+    expect(hiddenOfficialPlugins(response(-3))).toBe(0)
+    expect(hiddenOfficialPlugins(response(Number.NaN))).toBe(0)
+    expect(hiddenOfficialPlugins(null)).toBe(0)
   })
 })

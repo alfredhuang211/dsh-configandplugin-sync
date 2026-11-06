@@ -31,6 +31,8 @@ import {
 export interface PluginsTabProps {
   t: Translate
   rows: InventoryPluginRow[]
+  /** DeepSeek official/built-in bundles the Host excluded from `rows`. */
+  hiddenOfficial: number
   loading: boolean
   error: string | null
   query: string
@@ -104,6 +106,9 @@ export function PluginsTab(props: PluginsTabProps): ReactElement {
         }
       >
         <Banner tone="idle">{t('pluginsNoCodeNotice')}</Banner>
+        {props.hiddenOfficial > 0 ? (
+          <Banner tone="idle">{t('pluginsOfficialHidden', { count: formatCount(props.hiddenOfficial, '0') })}</Banner>
+        ) : null}
 
         {props.error === null ? null : (
           <Banner tone="error">

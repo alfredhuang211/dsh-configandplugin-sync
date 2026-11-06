@@ -80,6 +80,7 @@ import { McpTab } from './McpTab'
 import { Modal } from './Modal'
 import { OverviewTab } from './OverviewTab'
 import { PlanPreview } from './PlanPreview'
+import { hiddenOfficialPlugins } from '../inventory'
 import { PluginsTab } from './PluginsTab'
 import { SecretsTab } from './SecretsTab'
 import { SyncTab } from './SyncTab'
@@ -793,6 +794,7 @@ export function Page({ t }: PageProps): ReactElement {
         <PluginsTab
           t={t}
           rows={inventory === null ? [] : inventory.plugins}
+          hiddenOfficial={hiddenOfficialPlugins(inventory)}
           loading={inventoryLoading}
           error={inventoryError}
           query={pluginQuery}

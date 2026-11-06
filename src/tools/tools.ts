@@ -175,7 +175,7 @@ export function buildToolDefinitions(engine: SyncEngine): ToolDefinitionLike[] {
     {
       name: 'dsh_sync_inventory',
       description:
-        'List what this device would synchronize: DSH configuration file count, model providers, installed plugins (name, version, origin, install spec, enabled, restorable), MCP servers (transport, install method, version) and secret reference names. Read-only. No plugin code and no secret value is included.',
+        'List what this device would synchronize: DSH configuration file count, model providers, post-installed plugins (name, version, origin, install spec, enabled, restorable), MCP servers (transport, install method, version) and secret reference names. DeepSeek official/built-in bundles are excluded from the plugin list and only counted. Read-only. No plugin code and no secret value is included.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       output: { schema: { type: 'object' }, render: renderJson },
       timeoutMs: 120_000,
