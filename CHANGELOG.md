@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.2.1
+
+### 变更 / Changed
+
+- 发布链路改为 GitHub Actions + npm Trusted Publishing（OIDC）：打 `v*` 标签自动发布，仓库不再需要 `NPM_TOKEN`。
+- 新增 `docs/DEVELOPMENT.md`，记录开发流程、改名时哪些标识符要跟着变、发版步骤与排错。
+
+### 说明 / Notes
+
+- 功能无变化；这个版本的主要作用是让 npm 端的 trusted publisher 配置完成一次真实发布校验。
+
 ## 0.2.0
 
 ### 变更 / Changed

@@ -1,6 +1,6 @@
 {
   "name": "@alfredhuang211/dsh-configandplugin-sync",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packageManager": "npm@>=10",
   "publishConfig": {
     "access": "public",
