@@ -1,6 +1,11 @@
 {
-  "name": "dsh-configandplugin-sync",
-  "version": "0.1.0",
+  "name": "@alfredhuang211/dsh-configandplugin-sync",
+  "version": "0.2.0",
+  "packageManager": "npm@>=10",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "description": "DSH 配置与插件同步 — 跨设备同步 DeepSeek Harness 的配置、模型 provider、插件清单与配置、密钥与 MCP 服务；支持 WebDAV、Git 与 S3 兼容存储，不存储插件代码。 / DSH Config & Plugin Sync — synchronize DSH configuration, model providers, plugin inventory and configs, secrets and MCP servers across devices over WebDAV, Git, or S3-compatible storage, without storing plugin code.",
   "keywords": [
     "deepseek",
@@ -22,7 +27,8 @@
   "types": "lib/index.d.ts",
   "icon": "./assets/icon.png",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.0-rc.1 <0.3.0 || >=0.2.3-alpha.2 <0.3.0"
   },
   "scripts": {
     "build": "npm run build:host && npm run build:client",
@@ -64,8 +70,10 @@
     "lib",
     "assets/icon.png",
     "locale",
+    "docs",
     "cordis.patch.yml",
     "README.md",
+    "README_EN.md",
     "CHANGELOG.md",
     "LICENSE"
   ],

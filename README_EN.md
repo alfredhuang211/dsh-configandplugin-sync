@@ -58,9 +58,25 @@ dsh-config-sync/                    # configurable root prefix
 
 ## Install
 
+From npm (recommended: prebuilt, so no build-script approval is needed):
+
+```bash
+dsh plugin --profile desktop add @alfredhuang211/dsh-configandplugin-sync
+```
+
+That installs into the current profile's `node_modules` and applies to the whole profile. Restart DSH (or wait for HMR) and the Settings dialog shows **Config & plugin sync**.
+
+From GitHub also works, and needs the committed `lib/` (this repository ships it):
+
+```bash
+dsh plugin --profile desktop add github:alfredhuang211/dsh-configandplugin-sync#<commit>
+```
+
+### Build from source (development only)
+
 ```bash
 npm install
-npm run build          # emits lib/ (host) and lib/client.js (browser half)
+npm run verify        # typecheck + build + full test suite
 ```
 
 Then install the directory in DSH:
@@ -69,9 +85,7 @@ Then install the directory in DSH:
 plugin_manager install_bundle  target: /absolute/path/dsh-configandplugin-sync
 ```
 
-Restart DSH (or wait for HMR) and the Settings dialog shows **DSH 配置与插件同步 / DSH Config & Plugin Sync**.
-
-> `lib/` is a build artifact but must be committed: DSH installs plugins with pnpm, which blocks dependency build scripts, so a Git install needs the built half in the repository.
+> `lib/` is a build artifact but must be committed: DSH installs plugins with pnpm, which blocks dependency build scripts, so a Git install needs the built half in the repository. `npm publish` rebuilds it through `prepack`, so the published tarball never carries stale output.
 
 ## Quick start
 

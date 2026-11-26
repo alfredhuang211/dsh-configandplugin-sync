@@ -1,6 +1,16 @@
 # CHANGELOG
 
-## Unreleased
+## 0.2.0
+
+### 变更 / Changed
+
+- **包名改为 `@alfredhuang211/dsh-configandplugin-sync`**，同时发布到 npm。`dsh-configandplugin-sync` 这个无 scope 名在 npm 上已被他人占用，继续用无 scope 名发布会被拒或覆盖别人的项目。
+- 新增 `engines.dsh`：`>=0.2.0-rc.1 <0.3.0 || >=0.2.3-alpha.2 <0.3.0`。第二段分支是必需的——node-semver 只有在范围里存在**带预发布标签、且 `major.minor.patch` 与目标版本相同**的比较符时才放行预发布版本，所以只写 `>=0.2.0-rc.1 <0.3.0` 会静默排除 `0.2.3-alpha.2`。
+- 插件展示元信息：`locale/{en,zh}.json` 增加 `meta.title` / `meta.description` / `meta.detail`，并新增 `docs/DETAIL.md`、`docs/DETAIL.zh.md` 与共用配图 `docs/preview.svg`，插件页不再退化成只显示包名。
+
+### 保持不变 / Unchanged
+
+- 数据目录 `$DSH_HOME/dsh-configandplugin-sync/`、HTTP 路由前缀 `/api/dsh-configandplugin-sync`，以及 bundle patch 的行 `id`，**都保留无 scope 名**。它们是磁盘上的状态、两半之间的线上契约、以及用户 profile 覆盖所依据的键，改名会让已存的口令文件和已有覆盖静默失效。locale 命名空间则改为跟随包名。
 
 ### 新增 / Added
 

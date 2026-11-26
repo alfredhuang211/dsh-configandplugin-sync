@@ -131,7 +131,7 @@ class SectionBoundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /** Cordis plugin name (equals the package name). */
-export const name = 'dsh-configandplugin-sync'
+export const name = '@alfredhuang211/dsh-configandplugin-sync'
 
 /** Services required before the browser half mounts. */
 export const inject = ['slots', 'locale', 'theme']

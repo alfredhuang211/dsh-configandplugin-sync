@@ -2,18 +2,34 @@
  * Static identity and defaults of **DSH 配置与插件同步 / DSH Config & Plugin Sync**.
  * @module constants
  */
-/** Cordis plugin name; equals the bundle row id and the npm package name. */
-export declare const PACKAGE_NAME = "dsh-configandplugin-sync";
+/**
+ * Cordis plugin name; equals the bundle row id and the npm package name.
+ *
+ * Scoped on npm so the package cannot collide with a community package of the
+ * same short name. The `/` in a scoped name is literal in a module id and in a
+ * bundle row `name`, so nothing has to escape it.
+ */
+export declare const PACKAGE_NAME = "@alfredhuang211/dsh-configandplugin-sync";
 /** Chinese product title. */
 export declare const TITLE_ZH = "DSH \u914D\u7F6E\u4E0E\u63D2\u4EF6\u540C\u6B65";
 /** English product title. */
 export declare const TITLE_EN = "DSH Config & Plugin Sync";
-/** Directory under the DSH home holding this plugin's private data. */
+/**
+ * Directory under the DSH home holding this plugin's private data.
+ *
+ * Deliberately the unscoped short name: it names a directory on disk and stays
+ * compatible with data written before the package was scoped, so upgrading does
+ * not orphan an existing passphrase file or config.
+ */
 export declare const APP_DIR_NAME = "dsh-configandplugin-sync";
-/** Namespace key used by the settings section and the locale dictionaries. */
-export declare const LOCALE_NS = "dsh-configandplugin-sync";
-/** HTTP API prefix served on the Host connection channel. */
-export declare const API_PREFIX = "/api/dsh-configandplugin-sync";
+/**
+ * Namespace key used by the settings section and the locale dictionaries.
+ *
+ * Follows {@link PACKAGE_NAME}, matching the shipped plugins that also use their
+ * package name here (`dsh-client-ui-theme` is the one exception, with
+ * `settings.theme`). A locale namespace is an opaque string, so the `/` is fine.
+ */
+export declare const LOCALE_NS = "@alfredhuang211/dsh-configandplugin-sync";
 /** Default directory inside a backend that holds the synchronized documents. */
 export declare const DEFAULT_STORE_PATH = "dsh-config-sync";
 /** Default git branch used when the configuration leaves it empty. */

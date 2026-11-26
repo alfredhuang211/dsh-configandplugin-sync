@@ -11,7 +11,7 @@
  */
 
 /** Locale namespace owned by this plugin (equals the package name). */
-export const NS = 'dsh-configandplugin-sync'
+export const NS = '@alfredhuang211/dsh-configandplugin-sync'
 
 /** Translator signature: key plus optional `{placeholder}` values. */
 export type Translate = (key: string, vars?: Record<string, string | number>) => string

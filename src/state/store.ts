@@ -22,11 +22,11 @@ import type {
 } from '../types.js'
 import { defaultScopes } from '../types.js'
 import {
+  APP_DIR_NAME,
   DEFAULT_BRANCH,
   DEFAULT_PASSPHRASE_ENV,
   DEFAULT_STORE_PATH,
   DEFAULT_TOKEN_ENV,
-  PACKAGE_NAME,
 } from '../constants.js'
 import { randomId } from '../core/hash.js'
 import { parseJson, sanitizeJson } from '../core/json.js'
@@ -51,7 +51,10 @@ export interface StorePaths {
 
 /** Resolve every path this plugin owns. */
 export function resolveStorePaths(dshHome: string): StorePaths {
-  const dataDir = join(dshHome, PACKAGE_NAME)
+  // `APP_DIR_NAME`, not `PACKAGE_NAME`: this is a directory on disk. Using the
+  // scoped package name here would put a literal `@scope/` segment under
+  // $DSH_HOME and leave the existing passphrase file and config behind.
+  const dataDir = join(dshHome, APP_DIR_NAME)
   return {
     dataDir,
     configPath: join(dataDir, 'config.json'),

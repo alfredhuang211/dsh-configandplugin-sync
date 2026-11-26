@@ -5,7 +5,7 @@
  * that every key the page asks for actually exists.
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -69,11 +69,25 @@ function referencedKeys(): string[] {
   return [...keys].sort()
 }
 
-/** Parse one locale JSON file as a string dictionary. */
+/**
+ * Parse one locale JSON file as a string dictionary.
+ *
+ * The `meta` block is plugin display metadata read by the Harness (title,
+ * description, detail document), not page copy, so it is not part of the
+ * dictionary the mirrors test compares. Its own shape is asserted separately.
+ */
 function readLocale(name: 'zh' | 'en'): Record<string, string> {
   const path = fileURLToPath(new URL(`../../locale/${name}.json`, import.meta.url))
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-  return parsed as Record<string, string>
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+  const { meta: _meta, ...dictionary } = parsed
+  return dictionary as Record<string, string>
+}
+
+/** Read the `meta` block of one locale JSON file. */
+function readLocaleMeta(name: 'zh' | 'en'): Record<string, unknown> {
+  const path = fileURLToPath(new URL(`../../locale/${name}.json`, import.meta.url))
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as { meta?: Record<string, unknown> }
+  return parsed.meta ?? {}
 }
 
 describe('dictionaries', () => {
@@ -101,6 +115,37 @@ describe('dictionaries', () => {
   it('mirrors the dictionaries in locale/zh.json and locale/en.json', () => {
     expect(readLocale('zh')).toEqual(zh)
     expect(readLocale('en')).toEqual(en)
+  })
+
+  it('declares the plugin display metadata the Harness reads', () => {
+    for (const language of ['en', 'zh'] as const) {
+      const meta = readLocaleMeta(language)
+      expect(typeof meta.title, `${language}.meta.title`).toBe('string')
+      expect((meta.title as string).trim(), `${language}.meta.title`).not.toBe('')
+      expect(typeof meta.description, `${language}.meta.description`).toBe('string')
+      expect((meta.description as string).trim(), `${language}.meta.description`).not.toBe('')
+      // The detail document is a package-relative path inside a subdirectory:
+      // a `.md` file at the package root is rejected because its images there
+      // would not be published.
+      expect(meta.detail, `${language}.meta.detail`).toMatch(/^docs\/[^/]+\.md$/)
+    }
+  })
+
+  it('ships every detail document a locale declares', () => {
+    for (const language of ['en', 'zh'] as const) {
+      const relative = readLocaleMeta(language).detail as string
+      const detail = fileURLToPath(new URL(`../../${relative}`, import.meta.url))
+      expect(existsSync(detail), relative).toBe(true)
+      // One feature image per bundle, beside its document.
+      const markdown = readFileSync(detail, 'utf8').trim()
+      const images = [...markdown.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)]
+      expect(images.length, `${relative} image count`).toBeLessThanOrEqual(1)
+      for (const [, target] of images) {
+        const image = fileURLToPath(new URL(target as string, `file://${detail}`))
+        expect(existsSync(image), `${relative} -> ${target}`).toBe(true)
+        expect(statSync(image).size, `${target} size`).toBeLessThanOrEqual(5 * 1024 * 1024)
+      }
+    }
   })
 
   it('uses the package name as the locale namespace', () => {

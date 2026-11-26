@@ -1,4 +1,9 @@
 {
+  "meta": {
+    "title": "配置与插件同步",
+    "description": "通过 Git、WebDAV 或 S3 兼容存储在设备之间同步 DSH 配置、模型 Provider、插件清单与配置、密钥和 MCP 服务；插件代码本身不会上传。设置页先预览执行计划，破坏性步骤执行前需要确认。",
+    "detail": "docs/DETAIL.zh.md"
+  },
   "nav": "配置与插件同步",
   "intro": "在多台设备之间同步 DSH 配置、模型 Provider、插件清单与配置、密钥和 MCP 服务；插件代码本身不会上传。支持 Git、WebDAV 与 S3 兼容存储。",
   "loading": "加载中…",

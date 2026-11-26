@@ -1,4 +1,9 @@
 {
+  "meta": {
+    "title": "Config & plugin sync",
+    "description": "Synchronize DSH configuration, model providers, the plugin inventory and its configuration, secrets, and MCP servers across devices over Git, WebDAV, or S3-compatible storage. Plugin code is never uploaded. The settings page previews a plan before anything is written and asks before running destructive steps.",
+    "detail": "docs/DETAIL.md"
+  },
   "nav": "Config & Plugin Sync",
   "intro": "Synchronize DSH configuration, model providers, plugin inventory and configuration, secrets, and MCP servers across devices; plugin code itself is never uploaded. Backends: Git, WebDAV, and S3-compatible storage.",
   "loading": "Loading…",

@@ -1,8 +1,14 @@
-# Bundle patch layer for dsh-configandplugin-sync.
+# Bundle patch layer for @alfredhuang211/dsh-configandplugin-sync.
 #
 # The row loads the package's main entry as the host half (a Cordis plugin);
 # the `dsh.client` declaration in package.json makes the Web app load
 # ./client as the browser half that registers the settings page.
+#
+# `name` must be the module identifier exactly as Node resolves it, so it is the
+# scoped package name. `id` is the profile entry id — the key a user's profile
+# patch overrides and the settings namespace this bundle files its row under —
+# so it keeps the historical unscoped value: renaming it would silently orphan
+# every existing override.
 - insert:
     - id: dsh-configandplugin-sync
-      name: dsh-configandplugin-sync
+      name: '@alfredhuang211/dsh-configandplugin-sync'

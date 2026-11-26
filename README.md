@@ -58,10 +58,25 @@ dsh-config-sync/                    # 可配置的根前缀
 
 ## 安装
 
+从 npm 安装（推荐，装的是预构建产物，不需要构建授权）：
+
 ```bash
-# 在插件目录内
+dsh plugin --profile desktop add @alfredhuang211/dsh-configandplugin-sync
+```
+
+装进的是当前 profile 的 `node_modules`，并对整个 profile 生效。装完重启 DSH（或等待 HMR），设置页会出现 **配置与插件同步**。
+
+也可以从 GitHub 装，但要带上已构建的 `lib/`（本仓库提交了它）：
+
+```bash
+dsh plugin --profile desktop add github:alfredhuang211/dsh-configandplugin-sync#<commit>
+```
+
+### 从源码构建（仅开发时）
+
+```bash
 npm install
-npm run build          # 生成 lib/（Host 端）+ lib/client.js（Web 端）
+npm run verify        # typecheck + build + 全部测试
 ```
 
 然后在 DSH 里安装这个目录：
@@ -70,9 +85,7 @@ npm run build          # 生成 lib/（Host 端）+ lib/client.js（Web 端）
 plugin_manager install_bundle  target: /绝对路径/dsh-configandplugin-sync
 ```
 
-安装后重启 DSH（或等待 HMR），设置页会出现 **DSH 配置与插件同步**。
-
-> `lib/` 是构建产物但需要提交进仓库：DSH 安装插件时会阻止依赖的构建脚本，所以 Git 安装必须带上已构建的一半。
+> `lib/` 是构建产物但需要提交进仓库：DSH 安装插件时会阻止依赖的构建脚本，所以 Git 安装必须带上已构建的一半。`npm publish` 会通过 `prepack` 重新构建，因此发出去的 tarball 不会带过期的产物。
 
 ## 快速开始
 
