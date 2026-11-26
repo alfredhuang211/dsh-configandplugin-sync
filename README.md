@@ -204,9 +204,12 @@ patch 文件是按**原文**同步的（这样注释和 `!!js` 表达式才能�
 - 本机私有配置 `~/.dsh/dsh-configandplugin-sync/config.json` 权限 `0600`，目录 `0700`。
 - ⚠️ 与 DSH 本身一致：Agent 以你的 OS 用户运行，因此本机凭据文件对 Agent 可读；这个插件能保证的是**不把密钥写进同步存储、不写进日志、不回传浏览器**。
 
-## 发布
+## 发布与开发流程
 
-按 `@alfredhuang211/<包名>` 的 scope 命名发布，步骤与重命名影响面见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+包名统一使用 `@alfredhuang211` scope，由 GitHub Actions 在打 `v*` 标签时通过 OIDC 自动发布（无 NPM_TOKEN）。
+
+- **开发、测试、发版、排错全流程**：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- **命名规则与重命名影响面**：[docs/PUBLISHING.md](docs/PUBLISHING.md)
 
 ## 开发
 
